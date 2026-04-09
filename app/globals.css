@@ -2,25 +2,59 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0b1220;
+  --muted: #5b667a;
+  --surface: #f6f7fb;
+  --border: #e5e7eb;
+  --brand: #0f3a8a;       /* IIITL deep blue */
+  --brand-700: #0a2a66;
+  --brand-50: #eef3ff;
+  --accent: #c8a32e;       /* warm gold */
+  --accent-600: #a8881f;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-700: var(--brand-700);
+  --color-brand-50: var(--brand-50);
+  --color-accent: var(--accent);
+  --color-accent-600: var(--accent-600);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-fraunces);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0a0f1c;
+    --foreground: #e8ecf5;
+    --muted: #97a1b5;
+    --surface: #111729;
+    --border: #1f2740;
+    --brand: #4f7cff;
+    --brand-700: #3358d6;
+    --brand-50: #131c38;
+    --accent: #e1bd47;
+    --accent-600: #b5942b;
   }
 }
 
+html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+.font-serif {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
 }
