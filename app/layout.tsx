@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description:
       "A community hub for IIIT Lucknow alumni and students — directory, events, news, and jobs.",
     type: "website",
-    images: ["/og.png"],
+    images: ["/IIITL_LOGO.png"],
   },
 };
 
