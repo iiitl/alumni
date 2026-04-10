@@ -4,7 +4,7 @@ Thank you for wanting to help! This guide will get you from zero to a merged pul
 
 ---
 
-##Important notice
+## Important notice
 
 Issues are not arranged with sequence so make sure that you complete accordingly.
 
