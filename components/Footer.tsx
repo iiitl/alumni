@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const cols: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -33,9 +34,14 @@ export function Footer() {
         <div className="grid gap-10 lg:grid-cols-4">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand text-white font-serif text-lg font-semibold">
-                L
-              </div>
+              <Image
+                src="/IIITL_LOGO.svg"
+                alt="IIIT Lucknow Alumni Network Logo"
+                width={36}
+                height={36}
+                className="rounded-md"
+                style={{height: "auto" }}
+              />
               <div className="font-serif text-lg font-semibold">
                 IIITL Alumni
               </div>
