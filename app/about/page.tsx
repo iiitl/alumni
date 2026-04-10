@@ -8,7 +8,7 @@ export default function AboutPage() {
       <PageHeader
         eyebrow="About"
         title="What this is"
-        description="A community-built hub for IIIT Lucknow alumni and students. Not an official body — just a place for the IIITL family to find each other."
+        description="A community-built hub for IIIT Lucknow alumni and students. A place for the IIITL family to find each other."
       />
       <Section className="py-16">
         <div className="max-w-3xl space-y-5 text-lg text-muted">
