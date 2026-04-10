@@ -16,6 +16,7 @@ Issues are not arranged with sequence so make sure that you complete accordingly
 4. [Code style](#code-style)
 5. [Pull request process](#pull-request-process)
 6. [Who to ping for help](#who-to-ping-for-help)
+7. [AI usage policy](#ai-usage-policy)
 
 ---
 
@@ -120,6 +121,12 @@ This project uses **TypeScript**, **React (App Router)**, and **Tailwind CSS v4*
 | CI / infra | Open an issue with the **`chore`** label |
 
 You can also start a discussion in the [GitHub Discussions](https://github.com/MrImmortal09/alumni/discussions) tab (if enabled) or reach out via the project's communication channel shared in your onboarding.
+
+---
+
+## AI Usage Policy
+
+**Please read and follow the [AI Usage Policy](Ai_usage.md) before contributing.** It outlines your responsibilities when using AI tools, required disclosures, and quality standards for AI-assisted contributions.
 
 ---
 
