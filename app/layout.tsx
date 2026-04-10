@@ -21,12 +21,16 @@ export const metadata: Metadata = {
     template: "%s — IIITL Alumni",
   },
   description:
-    "A community-built hub for IIIT Lucknow alumni and students to find each other, share opportunities, and stay in touch after graduation.",
+    "A community-built hub for IIIT Lucknow alumni and students to find each other, share opportunities, and stay in touch after graduation",
+
+  
+
   openGraph: {
     title: "IIITL Alumni",
     description:
-      "A community hub for IIIT Lucknow alumni and students — directory, events, news, and jobs.",
+      "A community hub for IIIT Lucknow alumni and students — directory, events, news, and jobs",
     type: "website",
+    images: ["/og.png"],
   },
 };
 
