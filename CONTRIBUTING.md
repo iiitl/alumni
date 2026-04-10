@@ -4,6 +4,10 @@ Thank you for wanting to help! This guide will get you from zero to a merged pul
 
 ---
 
+##Important notice
+
+Issues are not arranged with sequence so make sure that you complete accordingly.
+
 ## Table of Contents
 
 1. [How to pick an issue](#how-to-pick-an-issue)
