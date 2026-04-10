@@ -16,7 +16,7 @@ A community-built alumni platform for **IIIT Lucknow** — a central hub where g
 | **Directory** | Searchable alumni list filtered by batch, branch, company, or city |
 | **Events** | Reunions, meetups, and community calls |
 | **Jobs board** | Roles and internships shared by IIITL alumni |
-| **Giving** | Donate to scholarships and student innovation funds |
+| **Giving** | Donate to student innovation funds |
 
 ---
 
@@ -56,18 +56,6 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-## Environment Variables
-
-Create a `.env.local` file at the project root (never commit this file). The table below lists all recognised variables:
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_SITE_URL` | No | Canonical URL of the deployment (e.g. `https://alumni.iiitl.ac.in`) |
-
-> Additional variables will be listed here as backend/auth integrations are added.
 
 ---
 
@@ -120,12 +108,6 @@ alumni/
 ├── lib/                  # Data helpers and utilities
 └── public/               # Static assets
 ```
-
----
-
-## Design System
-
-Color tokens, typography, and component patterns are documented in **[docs/design-system.md](docs/design-system.md)** (tracked in [Issue #4](https://github.com/MrImmortal09/alumni/issues/4)).
 
 ---
 
