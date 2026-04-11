@@ -7,9 +7,9 @@ export function generateStaticParams() {
   return events.map((e) => ({ slug: e.slug }));
 }
 
-export default async function EventDetailPage(
-  props: PageProps<"/events/[slug]">
-) {
+export default async function EventDetailPage(props: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await props.params;
   const event = events.find((e) => e.slug === slug);
   if (!event) notFound();

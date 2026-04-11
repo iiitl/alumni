@@ -7,9 +7,9 @@ export function generateStaticParams() {
   return news.map((n) => ({ slug: n.slug }));
 }
 
-export default async function NewsDetailPage(
-  props: PageProps<"/news/[slug]">
-) {
+export default async function NewsDetailPage(props: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await props.params;
   const item = news.find((n) => n.slug === slug);
   if (!item) notFound();
