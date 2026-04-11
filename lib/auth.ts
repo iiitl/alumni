@@ -33,46 +33,45 @@ const handler = NextAuth({
         })
       },
     }),
-
+    
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
     }),
   ],
 
   callbacks: {
-  async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile }) {
 
-    // EMAIL restriction
-    if (user?.email && !user.email.toLowerCase().endsWith("@iiitl.ac.in")) {
-      await logEvent(user.email, "INVALID_DOMAIN")
-      return false
-    }
-
-    // GOOGLE restriction
-    if (account?.provider === "google") {
-      if (profile?.hd !== "iiitl.ac.in") {
-        await logEvent(profile?.email || "", "GOOGLE_REJECT")
+      // EMAIL restriction
+      if (user?.email && !user.email.toLowerCase().endsWith("@iiitl.ac.in")) {
+        await logEvent(user.email, "INVALID_DOMAIN")
         return false
       }
 
-      // 🔥 CHECK IF NEW USER
-      const client = await clientPromise
-      const db = client.db()
-
-      const existingUser = await db
-        .collection("users")
-        .findOne({ email: user.email })
-
-      if (!existingUser) {
-        // redirect to password setup
-        return "/set-password?email=" + user.email
+      // GOOGLE restriction
+      if (account?.provider === "google") {
+        if (profile?.hd !== "iiitl.ac.in") {
+          await logEvent(profile?.email || "", "GOOGLE_REJECT")
+          return false
+        }
       }
-    }
 
-    return true
+      return true
+    },
+    async session({ session, user }) {
+      if (!user.password) {
+        // mark user as incomplete
+        session.user.needsPassword = true
+      }
+      return session
+    },
   },
-}
 
   session: {
     strategy: "database",
