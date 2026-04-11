@@ -86,12 +86,13 @@ export async function sendEmail({ to, subject, text, html }: EmailOptions): Prom
     });
 
     console.log('Email sent successfully via Mailgun:', data.id);
-    await logEmail(to, subject, 'sent', data.id);
+    void logEmail(to, subject, 'sent', data.id);
     return true;
   } catch (error: unknown) {
     const err = error as { message?: string };
-    console.error('Mailgun error details:', err?.message);
-    await logEmail(to, subject, 'failed', undefined, err?.message);
+    const safeErrorDetails = (err?.message ?? '').slice(0, 1000);
+    console.error('Mailgun error details:', safeErrorDetails);
+    void logEmail(to, subject, 'failed', undefined, safeErrorDetails);
     return false;
   }
 }
