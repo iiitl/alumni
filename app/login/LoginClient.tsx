@@ -7,14 +7,38 @@ import { useState } from "react"
 
 export default function LoginClient() {
   const [email, setEmail] = useState("")
+  const [error, setError] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    await signIn("email", {
-      email,
-      callbackUrl: "/",
-    })
+    setError("")
+
+    try {
+      // rate limit check BEFORE signIn
+      const res = await fetch("/api/rate-limit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await res.json()
+
+      if (!data.allowed) {
+        setError("Too many requests. Please try again later.")
+        return
+      }
+
+      // proceed normally
+      await signIn("email", {
+        email,
+        callbackUrl: "/",
+      })
+    } catch (err) {
+      setError("Something went wrong. Please try again.")
+    }
   }
 
   return (
@@ -51,13 +75,20 @@ export default function LoginClient() {
           </button>
         </form>
 
+        {/* ERROR MESSAGE (no UI change, just added) */}
+        {error && (
+          <p className="mt-2 text-sm text-red-500">
+            {error}
+          </p>
+        )}
+
         <button
-        type="button"
-        onClick={() => signIn("google", { callbackUrl: "/" })}
-        className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-md border border-border text-sm font-semibold"
+          type="button"
+          onClick={() => signIn("google", { callbackUrl: "/" })}
+          className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-md border border-border text-sm font-semibold"
         >
-            Sign in with Google
-            </button>
+          Sign in with Google
+        </button>
 
         <p className="mt-4 text-center text-sm text-muted">
           New to IIITL Alumni?{" "}
