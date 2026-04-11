@@ -16,6 +16,16 @@ if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
+/**
+ * Establishes a connection to the MongoDB database.
+ * 
+ * This function utilizes connection caching to prevent multiple database connections 
+ * during hot-reloading in development environments. It reads the `MONGODB_URI` 
+ * environment variable dynamically at invocation to ensure it captures runtime environment configurations.
+ * 
+ * @returns {Promise<typeof mongoose>} A promise that resolves to the Mongoose connection instance.
+ * @throws {Error} Throws an error if the `MONGODB_URI` environment variable is not defined.
+ */
 export async function connectDB() {
   const MONGODB_URI = process.env.MONGODB_URI;
 

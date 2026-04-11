@@ -1,12 +1,22 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+/**
+ * Represents a logged email delivery attempt in the database.
+ */
 export interface IEmailLog extends Document {
+  /** The recipient's email address. */
   to: string;
+  /** The subject line of the email. */
   subject: string;
+  /** The delivery status of the email. */
   status: 'sent' | 'failed';
+  /** The unique message ID returned by Mailgun upon successful send (optional). */
   messageId?: string;
+  /** Detailed error message if the email attempt failed (optional). */
   errorDetails?: string;
+  /** Automatically generated timestamp of when the log was created. */
   createdAt: Date;
+  /** Automatically generated timestamp of when the log was last updated. */
   updatedAt: Date;
 }
 

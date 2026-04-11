@@ -3,13 +3,25 @@ import Mailgun from 'mailgun.js';
 import EmailLog from '../../models/EmailLog';
 import { connectDB } from '../db';
 
+/**
+ * Options required to send an email via Mailgun.
+ */
 interface EmailOptions {
+  /** The recipient's email address. */
   to: string;
+  /** The subject line of the email. */
   subject: string;
+  /** The plain text body of the email. */
   text: string;
+  /** The HTML encoded body of the email (optional, defaults to plain text if not provided). */
   html?: string;
 }
 
+/**
+ * Validates the presence of required Mailgun environment variables.
+ * 
+ * @returns {boolean} True if all required environment variables are present, otherwise false.
+ */
 function validateMailgunEnvVars(): boolean {
   const requiredVars = ['MAILGUN_API_KEY', 'MAILGUN_DOMAIN'];
   const missingVars = requiredVars.filter((varName) => !process.env[varName]);
@@ -23,6 +35,14 @@ function validateMailgunEnvVars(): boolean {
 
 let mailgunClient: ReturnType<Mailgun['client']> | null = null;
 
+/**
+ * Initializes and returns a singleton instance of the Mailgun client.
+ * 
+ * The client is configured using the `MAILGUN_API_KEY` and `MAILGUN_URL`
+ * environment variables. It caches the instance to avoid re-initialization on subsequent calls.
+ * 
+ * @returns {ReturnType<Mailgun['client']> | null} The authenticated Mailgun client instance, or null if initialization fails.
+ */
 function getMailgunClient() {
   if (!mailgunClient && validateMailgunEnvVars()) {
     const mailgun = new Mailgun(FormData);
@@ -35,6 +55,16 @@ function getMailgunClient() {
   return mailgunClient;
 }
 
+/**
+ * Sends an email using the Mailgun API and logs the attempt to the database.
+ * 
+ * This function ensures the Mailgun client is properly configured and constructs 
+ * the 'From' address using environment variables. It logs both successful sends 
+ * and failed attempts to the `EmailLog` database collection.
+ *
+ * @param {EmailOptions} options - The configuration object for the email to be sent.
+ * @returns {Promise<boolean>} A promise that resolves to `true` if the email was successfully sent, or `false` if it failed.
+ */
 export async function sendEmail({ to, subject, text, html }: EmailOptions): Promise<boolean> {
   const mg = getMailgunClient();
 
@@ -66,6 +96,16 @@ export async function sendEmail({ to, subject, text, html }: EmailOptions): Prom
   }
 }
 
+/**
+ * Logs an email delivery attempt to the MongoDB database.
+ * 
+ * @param {string} to - The recipient's email address.
+ * @param {string} subject - The subject line of the email.
+ * @param {'sent' | 'failed'} status - The delivery outcome status.
+ * @param {string} [messageId] - The Mailgun message ID (applicable if successful).
+ * @param {string} [errorDetails] - The error message details (applicable if failed).
+ * @returns {Promise<void>}
+ */
 async function logEmail(
   to: string,
   subject: string,
