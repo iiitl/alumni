@@ -1,3 +1,4 @@
+import Google from "next-auth/providers/google"
 import NextAuth from "next-auth"
 import Email from "next-auth/providers/email"
 import { MongoDBAdapter } from "@auth/mongodb-adapter"
@@ -10,28 +11,44 @@ const handler = NextAuth({
   adapter: MongoDBAdapter(clientPromise),
 
   providers: [
-    Email({
-      from: process.env.EMAIL_FROM,
+  Email({
+    from: process.env.EMAIL_FROM,
 
-      async sendVerificationRequest({ identifier, url }) {
-        console.log("Sending email to:", identifier)
+    async sendVerificationRequest({ identifier, url }) {
+      console.log("Sending email to:", identifier)
 
-        await resend.emails.send({
-          from: process.env.EMAIL_FROM!,
-          to: identifier,
-          subject: "Sign in to IIITL Alumni",
-          html: `<p>Click to sign in:</p><a href="${url}">${url}</a>`,
-        })
-      },
-    }),
-  ],
+      await resend.emails.send({
+        from: process.env.EMAIL_FROM!,
+        to: identifier,
+        subject: "Sign in to IIITL Alumni",
+        html: `<p>Click to sign in:</p><a href="${url}">${url}</a>`,
+      })
+    },
+  }),
+
+  Google({
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  }),
+],
 
   callbacks: {
-  async signIn({ user }) {
+  async signIn({ user, account, profile }) {
+
+    // EMAIL restriction
     if (user?.email && !user.email.toLowerCase().endsWith("@iiitl.ac.in")) {
       console.log("Rejected email:", user.email)
       return false
     }
+
+    // GOOGLE restriction
+    if (account?.provider === "google") {
+      if (profile?.hd !== "iiitl.ac.in") {
+        console.log("Rejected Google:", profile?.email)
+        return false
+      }
+    }
+
     return true
   },
 },
