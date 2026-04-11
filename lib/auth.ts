@@ -5,6 +5,7 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter"
 import clientPromise from "./mongodb"
 import { Resend } from "resend"
 import { checkRateLimit } from "./rateLimit"
+import { logEvent } from "./logger"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -12,52 +13,66 @@ const handler = NextAuth({
   adapter: MongoDBAdapter(clientPromise),
 
   providers: [
-  Email({
-  from: process.env.EMAIL_FROM,
+    Email({
+      from: process.env.EMAIL_FROM,
 
-  async sendVerificationRequest({ identifier, url }) {
+      async sendVerificationRequest({ identifier, url }) {
 
-    //  RATE LIMIT CHECK
-    if (!checkRateLimit(identifier)) {
-  console.log("Rate limit exceeded:", identifier)
-  throw new Error("Too many requests. Please try again later.")
-}
+        // RATE LIMIT CHECK
+        if (!checkRateLimit(identifier)) {
+          console.log("Rate limit exceeded:", identifier)
+          await logEvent(identifier, "RATE_LIMIT")
+          throw new Error("Too many requests. Please try again later.")
+        }
 
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM!,
-      to: identifier,
-      subject: "Sign in to IIITL Alumni",
-      html: `<p>Click to sign in:</p><a href="${url}">${url}</a>`,
-    })
-  },
-}),
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM!,
+          to: identifier,
+          subject: "Sign in to IIITL Alumni",
+          html: `<p>Click to sign in:</p><a href="${url}">${url}</a>`,
+        })
+      },
+    }),
 
-  Google({
-    clientId: process.env.GOOGLE_CLIENT_ID!,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-  }),
-],
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+  ],
 
   callbacks: {
   async signIn({ user, account, profile }) {
 
     // EMAIL restriction
     if (user?.email && !user.email.toLowerCase().endsWith("@iiitl.ac.in")) {
-      console.log("Rejected email:", user.email)
+      await logEvent(user.email, "INVALID_DOMAIN")
       return false
     }
 
     // GOOGLE restriction
     if (account?.provider === "google") {
       if (profile?.hd !== "iiitl.ac.in") {
-        console.log("Rejected Google:", profile?.email)
+        await logEvent(profile?.email || "", "GOOGLE_REJECT")
         return false
+      }
+
+      // 🔥 CHECK IF NEW USER
+      const client = await clientPromise
+      const db = client.db()
+
+      const existingUser = await db
+        .collection("users")
+        .findOne({ email: user.email })
+
+      if (!existingUser) {
+        // redirect to password setup
+        return "/set-password?email=" + user.email
       }
     }
 
     return true
   },
-},
+}
 
   session: {
     strategy: "database",
