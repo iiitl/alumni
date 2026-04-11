@@ -6,6 +6,8 @@ import clientPromise from "./mongodb"
 import { Resend } from "resend"
 import { checkRateLimit } from "./rateLimit"
 import { logEvent } from "./logger"
+import Credentials from "next-auth/providers/credentials"
+import bcrypt from "bcryptjs"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -41,6 +43,33 @@ const handler = NextAuth({
         params: {
           prompt: "select_account",
         },
+      },
+    }),
+
+    // Credentials check
+    Credentials({
+      name: "Credentials",
+      credentials: {
+        email: {},
+        password: {},
+      },
+      async authorize(credentials) {
+        const client = await clientPromise
+        const db = client.db()
+        
+        const user = await db
+        .collection("users")
+        .findOne({ email: credentials?.email })
+        
+        if (!user) return null
+        if (!user.password) return null
+        const isValid = await bcrypt.compare(
+          credentials?.password || "",
+          user.password
+        )
+        
+        if (!isValid) return null
+        return user
       },
     }),
   ],

@@ -1,11 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 
 export default function SetPasswordPage() {
   const searchParams = useSearchParams()
-  const router = useRouter()
 
   const email = searchParams.get("email")
 
@@ -16,18 +15,28 @@ export default function SetPasswordPage() {
     e.preventDefault()
     setLoading(true)
 
-    const res = await fetch("/api/set-password", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    })
+    try {
+      const res = await fetch("/api/set-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-    if (res.ok) {
-      router.push("/")
-    } else {
-      alert("Something went wrong")
+      const data = await res.json()
+      console.log("API response:", data)
+
+      if (res.ok) {
+        // 🔥 force reload so session updates
+        window.location.href = "/"
+      } else {
+        console.error("Error response:", data)
+        alert("Something went wrong")
+      }
+    } catch (err) {
+      console.error("Request failed:", err)
+      alert("Request failed")
     }
 
     setLoading(false)
