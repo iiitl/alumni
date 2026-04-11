@@ -69,13 +69,21 @@ export async function sendEmail({ to, subject, text, html }: EmailOptions): Prom
   const mg = getMailgunClient();
 
   if (!mg || !process.env.MAILGUN_DOMAIN) {
-    console.error('Mailgun client not initialized or domain missing');
+    const initError = 'Mailgun client not initialized or domain missing';
+    console.error(initError);
+    void logEmail(to, subject, 'failed', undefined, initError);
     return false;
   }
 
   // Ensure from address is in proper format
   const fromAddress = process.env.EMAIL_FROM || `no-reply@${process.env.MAILGUN_DOMAIN}`;
-
+  function sanitizeErrorDetails(message: string, maxLen = 1000): string {
+    return message
+      .replace(/[\u0000-\u001F\u007F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, maxLen);
+  }
   try {
     const data = await mg.messages.create(process.env.MAILGUN_DOMAIN, {
       from: fromAddress,
@@ -88,9 +96,10 @@ export async function sendEmail({ to, subject, text, html }: EmailOptions): Prom
     console.log('Email sent successfully via Mailgun:', data.id);
     void logEmail(to, subject, 'sent', data.id);
     return true;
+
   } catch (error: unknown) {
     const err = error as { message?: string };
-    const safeErrorDetails = (err?.message ?? '').slice(0, 1000);
+    const safeErrorDetails = sanitizeErrorDetails(err?.message ?? '');
     console.error('Mailgun error details:', safeErrorDetails);
     void logEmail(to, subject, 'failed', undefined, safeErrorDetails);
     return false;
