@@ -1,4 +1,5 @@
 import { connectDB } from "@/lib/db";
+import { withRateLimit } from "@/lib/with-ratelimit";
 
 export async function GET() {
   const start = Date.now();
@@ -12,3 +13,15 @@ export async function GET() {
     latency,
   });
 }
+
+export const POST = withRateLimit(async (req: Request) => {
+  // Create logic
+});
+
+export const PUT = withRateLimit(async (req: Request) => {
+  // Update logic
+});
+
+export const DELETE = withRateLimit(async (req: Request) => {
+  // Delete logic
+});
