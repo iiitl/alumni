@@ -10,11 +10,25 @@ import { checkRateLimit } from "./rateLimit"
 import { logEvent } from "./logger"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
+import { StagingUser } from "../models/StagingUser"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+const baseAdapter = MongoDBAdapter(clientPromise)
+
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+  adapter: {
+    ...baseAdapter,
+    async createUser(user) {
+      const isStaged = await StagingUser.findOne({
+        email: user.email?.toLowerCase(),
+      })
+      if (isStaged) {
+        return { ...user, id: "pending" }
+      }
+      return baseAdapter.createUser!(user)
+    },
+  },
 
   providers: [
     Email({
@@ -56,7 +70,6 @@ export const authOptions: NextAuthOptions = {
       },
     }),
 
-    // Credentials check
     Credentials({
       name: "Credentials",
       credentials: {
@@ -73,8 +86,8 @@ export const authOptions: NextAuthOptions = {
         const db = client.db()
         
         const user = await db
-        .collection("users")
-        .findOne({ email: credentials.email })
+          .collection("users")
+          .findOne({ email: credentials.email })
         
         if (!user) return null
         if (!user.password) return null
@@ -104,6 +117,27 @@ export const authOptions: NextAuthOptions = {
           await logEvent(profile?.email || "", "GOOGLE_REJECT")
           return false
         }
+
+        const db = (await clientPromise).db()
+        const existingUser = await db
+          .collection("users")
+          .findOne({ email: user.email!.toLowerCase() })
+
+        if (!existingUser) {
+          await StagingUser.findOneAndUpdate(
+            { email: user.email!.toLowerCase() },
+            {
+              $set: {
+                name:      user.name,
+                image:     user.image,
+                googleId:  account.providerAccountId,
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+              },
+            },
+            { upsert: true, new: true }
+          )
+          return `/set-password?email=${encodeURIComponent(user.email!.toLowerCase())}`
+        }
       }
 
       return true
@@ -112,7 +146,6 @@ export const authOptions: NextAuthOptions = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async session({ session, user }: any) {
       if (!user.password) {
-        // Query linked accounts only during the password-less onboarding phase
         const client = await clientPromise
         const db = client.db()
         const targetIdObj = typeof user.id === "string" ? new ObjectId(user.id) : (user._id || user.id)
