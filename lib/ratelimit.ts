@@ -40,7 +40,7 @@ export async function limit(key: string, config: RateLimitConfig) {
     }
 
     // If they hit the 429 limit 3+ times in an hour, escalate to AuditLog
-    if (breachCount >= 3) {
+    if (breachCount === 3) {
       await logToAudit({
         severity: 'WARNING',
         event: 'CONSISTENT_RATE_LIMIT_BREACH',

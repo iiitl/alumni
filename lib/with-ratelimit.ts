@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { limit } from "./ratelimit";
 
+/**
+ * Wraps a Next.js API route handler to apply rate limiting.
+ *
+ * @example
+ * export const POST = withRateLimit(async (req: NextRequest) => {
+ *   // Create logic
+ *   return Response.json({ success: true });
+ * });
+ *
+ * export const PUT = withRateLimit(async (req: NextRequest) => {
+ *   // Update logic
+ *   return Response.json({ success: true });
+ * });
+ *
+ * export const DELETE = withRateLimit(async (req: NextRequest) => {
+ *   // Delete logic
+ *   return Response.json({ success: true });
+ * });
+ */
 export function withRateLimit<T extends unknown[]>(
   handler: (req: NextRequest, ...args: T) => Promise<Response> | Response
 ) {
