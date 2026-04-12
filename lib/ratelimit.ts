@@ -1,13 +1,13 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
-import { logToAudit } from './audit-log'; 
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+const redisClient = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null;
 
-// Define valid window formats expected by Upstash
 type Unit = 'ms' | 's' | 'm' | 'h' | 'd';
 type Duration = `${number} ${Unit}` | `${number}${Unit}`;
 
@@ -16,45 +16,68 @@ interface RateLimitConfig {
   window: Duration;
 }
 
+const ratelimitCache = new Map<string, Ratelimit>();
+
 export async function limit(key: string, config: RateLimitConfig) {
-  // Initialize the sliding window limiter with the custom config
-  const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(config.maxRequests, config.window),
-    analytics: true, 
-  });
-
-  const result = await ratelimit.limit(key);
-
-  // Calculate standard Retry-After in seconds
-  const retryAfterSeconds = Math.ceil((result.reset - Date.now()) / 1000);
-
-  // Handle breach logging
-  if (!result.success) {
-    const breachKey = `breach_count:${key}`;
-    
-    // Increment a separate counter for breaches, expiring after 1 hour
-    const breachCount = await redis.incr(breachKey);
-    if (breachCount === 1) {
-      await redis.expire(breachKey, 3600); 
-    }
-
-    // If they hit the 429 limit 3+ times in an hour, escalate to AuditLog
-    if (breachCount === 3) {
-      await logToAudit({
-        severity: 'WARNING',
-        event: 'CONSISTENT_RATE_LIMIT_BREACH',
-        target: key,
-        message: `Key breached rate limits ${breachCount} times within the hour.`,
-      });
-    }
+  if (!redisClient) {
+    console.warn("Rate limiting bypassed: UPSTASH_REDIS credentials are missing.");
+    return { success: true, limit: config.maxRequests, remaining: config.maxRequests, reset: 0, retryAfter: 0 };
   }
 
-  return {
-    success: result.success,
-    limit: result.limit,
-    remaining: result.remaining,
-    reset: result.reset,
-    retryAfter: retryAfterSeconds > 0 ? retryAfterSeconds : 1,
-  };
+  // Retrieve existing rate limiter from cache, or create and cache a new one for this config
+  const cacheKey = `${config.maxRequests}-${config.window}`;
+  let ratelimit = ratelimitCache.get(cacheKey);
+
+  if (!ratelimit) {
+    ratelimit = new Ratelimit({
+      redis: redisClient,
+      limiter: Ratelimit.slidingWindow(config.maxRequests, config.window),
+      analytics: true, 
+    });
+    ratelimitCache.set(cacheKey, ratelimit);
+  }
+
+  try {
+    const result = await ratelimit.limit(key);
+
+    // Calculate standard Retry-After in seconds
+    const retryAfterSeconds = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000));
+
+    if (!result.success) {
+      const breachKey = `breach_count:${key}`;
+      
+      const pipeline = redisClient.pipeline();
+      pipeline.incr(breachKey);
+      pipeline.expire(breachKey, 3600);
+      
+      const results = await pipeline.exec();
+      const breachCount = results[0] as number;
+
+      if (breachCount === 3) {
+        console.log({
+                    severity: 'WARNING',
+                    event: 'CONSISTENT_RATE_LIMIT_BREACH',
+                    target: key,
+                    message: `Key breached rate limits ${breachCount} times within the hour.`,
+                  });
+      }
+    }
+
+    return {
+      success: result.success,
+      limit: result.limit,
+      remaining: result.remaining,
+      reset: result.reset,
+      retryAfter: retryAfterSeconds,
+    };
+  } catch (error) {
+    console.error("Rate limiting error:", error);
+    return {
+      success: true,
+      limit: config.maxRequests,
+      remaining: config.maxRequests,
+      reset: 0,
+      retryAfter: 0,
+    };
+  }
 }

@@ -24,11 +24,11 @@ export function withRateLimit<T extends unknown[]>(
   handler: (req: NextRequest, ...args: T) => Promise<Response> | Response
 ) {
   return async (req: NextRequest, ...args: T) => {
-    // Determine the user's IP or identifier to use as the rate limit key
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
+    
+    const identifier = `${req.nextUrl.pathname}:${ip}`;
 
-    // Call your limit function (allow e.g. 5 requests per minute)
-    const { success, retryAfter } = await limit(ip, {
+    const { success, retryAfter } = await limit(identifier, {
       maxRequests: 5,
       window: "1 m",
     });
@@ -40,7 +40,6 @@ export function withRateLimit<T extends unknown[]>(
       );
     }
 
-    // If rate limit checks pass, execute the actual API route logic
     return handler(req, ...args);
   };
 }
