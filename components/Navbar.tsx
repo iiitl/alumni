@@ -53,7 +53,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {session ? (
             <button
-              onClick={() => signOut({ callbackUrl: "/" })}
+              onClick={() => signOut({ redirectTo: "/" })}
               className="inline-flex h-9 items-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground/80 hover:text-brand"
             >
               Sign out
