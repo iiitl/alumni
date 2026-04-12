@@ -38,7 +38,6 @@ export const authOptions: NextAuthOptions = {
 
         // DOMAIN CHECK
         if (!/@iiitl\.ac\.in$/i.test(identifier)) {
-          console.log("Domain rejected:", identifier)
           await logEvent(identifier, "INVALID_DOMAIN")
           throw new Error("Only @iiitl.ac.in emails are allowed")
         }
@@ -46,7 +45,6 @@ export const authOptions: NextAuthOptions = {
         // RATE LIMIT CHECK
         const rateLimitResult = await checkRateLimit(identifier)
         if (!rateLimitResult.allowed) {
-          console.log("Rate limit exceeded:", identifier)
           await logEvent(identifier, "RATE_LIMIT")
           throw new Error("Too many requests. Please try again later.")
         }
@@ -78,7 +76,6 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !/@iiitl\.ac\.in$/i.test(credentials.email)) {
-          console.log("Credentials domain rejected:", credentials?.email)
           return null
         }
 

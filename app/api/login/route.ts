@@ -3,6 +3,7 @@ import clientPromise from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
 import { cookies } from "next/headers"
 import { randomUUID } from "crypto"
+import { logEvent } from "@/lib/logger"
 
 export async function POST(req: Request) {
   try {
@@ -12,10 +13,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 })
     }
 
+    const canonical = email.trim().toLowerCase()
+
+    if (!/@iiitl\.ac\.in$/i.test(canonical)) {
+      await logEvent(canonical, "LOGIN_REJECTED_INVALID_DOMAIN")
+      return NextResponse.json({ error: "Invalid credentials." }, { status: 401 })
+    }
+
     const client = await clientPromise
     const db = client.db()
     
-    const user = await db.collection("users").findOne({ email })
+    const user = await db.collection("users").findOne({ email: canonical })
     if (!user || !user.password) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 400 })
     }
@@ -25,9 +33,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 400 })
     }
 
-
     const sessionToken = randomUUID()
-    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
     await db.collection("sessions").insertOne({
       sessionToken,
@@ -51,6 +58,6 @@ export async function POST(req: Request) {
 
   } catch (err: unknown) {
     console.error("Login Error:", err)
-    return NextResponse.json({ error: (err as Error).message, stack: (err as Error).stack }, { status: 500 })
+    return NextResponse.json({ error: "An internal error occurred. Please try again." }, { status: 500 })
   }
 }
