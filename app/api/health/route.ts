@@ -14,14 +14,17 @@ export async function GET() {
   });
 }
 
-export const POST = withRateLimit(async (req: Request) => {
+export const POST = withRateLimit(async (_req: Request) => {
   // Create logic
+  return Response.json({ success: true });
 });
 
-export const PUT = withRateLimit(async (req: Request) => {
+export const PUT = withRateLimit(async (_req: Request) => {
   // Update logic
+  return Response.json({ success: true });
 });
 
-export const DELETE = withRateLimit(async (req: Request) => {
+export const DELETE = withRateLimit(async (_req: Request) => {
   // Delete logic
+  return Response.json({ success: true });
 });

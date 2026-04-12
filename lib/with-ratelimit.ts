@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { limit } from "./ratelimit";
 
-export function withRateLimit(handler: Function) {
-  return async (req: NextRequest, ...args: any[]) => {
+export function withRateLimit<T extends unknown[]>(
+  handler: (req: NextRequest, ...args: T) => Promise<Response> | Response
+) {
+  return async (req: NextRequest, ...args: T) => {
     // Determine the user's IP or identifier to use as the rate limit key
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
 
