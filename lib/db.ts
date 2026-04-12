@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI;
+await mongoose.connect(process.env.MONGODB_URI!)
 
 declare global {
   var mongoose: {

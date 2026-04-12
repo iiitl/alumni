@@ -65,8 +65,8 @@ export default function RegisterClient() {
         window.location.href = "/";
       }
 
-    } catch (err) {
-      setError("Something went wrong. Please try again.");
+    } catch {
+  setError("Something went wrong. Please try again.")
       setLoading(false);
     }
   };

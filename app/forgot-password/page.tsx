@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
         <h2 className="text-xl font-semibold">Forgot password</h2>
         <p className="mt-2 text-sm text-muted">
           Enter your <span className="font-medium text-foreground">@iiitl.ac.in</span> email and
-          we'll send you a reset link.
+          we&apos;ll send you a reset link.
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>

@@ -65,7 +65,7 @@ export default function LoginClient() {
           window.location.href = "/"
         }
       }
-    } catch (err) {
+    } catch {
       setError("Something went wrong. Please try again.")
     }
   }
