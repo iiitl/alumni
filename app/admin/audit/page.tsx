@@ -58,7 +58,7 @@ export default async function AuditLogPage() {
             </tr>
           </thead>
           <tbody>
-            {logs.map((log: any) => (
+            {logs.map((log) => (
               <tr 
                 key={log._id.toString()} 
                 className="bg-white border-b dark:bg-black/20 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
