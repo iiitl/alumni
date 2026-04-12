@@ -1,5 +1,4 @@
 import { connectDB } from "@/lib/db";
-import { withRateLimit } from "@/lib/with-ratelimit";
 
 export async function GET() {
   const start = Date.now();
