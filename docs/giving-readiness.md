@@ -51,7 +51,7 @@ Before enabling the donations feature, the organization must establish proper fi
   - Verify current registration status (if any existing exemptions)
 
 - [ ] **80G Application Process**
-  - File Form 10G with the Income Tax Department
+  - File the applicable registration/approval form (Form 10A/10AB) on the Income Tax e-filing portal
   - Provide required documents:
     - Trust deed / Memorandum of Association
     - Registration certificate
@@ -60,8 +60,8 @@ Before enabling the donations feature, the organization must establish proper fi
   - Obtain 80G certificate (allows donors to claim tax deductions)
 
 - [ ] **12A Registration** (if not already obtained)
-  - Required for income tax exemption for the trust/organization itself
-  - File Form 10A
+   - Required for income tax exemption for the trust/organization itself
+   - File the applicable registration form (Form 10A/10AB) on the Income Tax e-filing portal
 
 - [ ] **FCRA Registration** (if accepting foreign donations)
   - Foreign Contribution Regulation Act compliance
@@ -155,7 +155,7 @@ Before enabling the donations feature, the organization must establish proper fi
   - Spending authorization limits
 
 - [ ] **Donor Privacy Policy**
-  - GDPR/data protection compliance
+  - Compliance with applicable Indian data protection law (DPDP Act and rules), and GDPR where EU donor data is processed
   - How donor information is stored and used
   - Opt-in/opt-out for communications
 
@@ -348,7 +348,7 @@ Before enabling the donations feature, the organization must establish proper fi
 This document serves as a comprehensive checklist for donation readiness. The `/giving` page should remain as "Coming Soon" until AT MINIMUM the following critical items are complete:
 
 1. ✅ Dedicated bank account opened
-2. ✅ 80G registration obtained (or application in process with clear timeline)
+2. ✅ 80G registration obtained (active and verifiable)
 3. ✅ Accounting system established
 4. ✅ Payment gateway integrated and tested
 5. ✅ Governance policies documented and board-approved
