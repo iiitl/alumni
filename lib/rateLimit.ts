@@ -1,9 +1,9 @@
 import mongoose from "mongoose"
-import clientPromise from "./mongodb"
 
 const RateLimitSchema = new mongoose.Schema({
-  email: String,
-  timestamp: { type: Date, default: Date.now, expires: "1h" },
+  email:       { type: String, required: true, unique: true },
+  count:       { type: Number, default: 0 },
+  windowStart: { type: Date, default: Date.now, expires: "1h" },
 })
 
 const RateLimit =
@@ -17,25 +17,26 @@ export async function checkRateLimit(email: string) {
   const normalizedEmail = email.toLowerCase()
 
   try {
-    const client = await clientPromise
-
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(process.env.MONGODB_URI!)
     }
 
-    const windowMs = 60 * 60 * 1000 // 1 hour
-    const oneHourAgo = new Date(Date.now() - windowMs)
+    const windowStart = new Date(Date.now() - 60 * 60 * 1000)
 
-    const count = await RateLimit.countDocuments({
-      email: normalizedEmail,
-      timestamp: { $gte: oneHourAgo },
-    })
+    const bucket = await RateLimit.findOneAndUpdate(
+      { email: normalizedEmail, windowStart: { $gte: windowStart } },
+      { $inc: { count: 1 }, $setOnInsert: { windowStart: new Date() } },
+      { upsert: true, new: true }
+    )
 
-    if (count >= 5) {
+    if (bucket.count > 5) {
+      await RateLimit.updateOne(
+        { _id: bucket._id },
+        { $inc: { count: -1 } }
+      )
       return { allowed: false }
     }
 
-    await RateLimit.create({ email: normalizedEmail })
     return { allowed: true }
   } catch (err) {
     console.error("Rate limit db error:", err)
