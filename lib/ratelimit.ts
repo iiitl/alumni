@@ -73,11 +73,11 @@ export async function limit(key: string, config: RateLimitConfig) {
   } catch (error) {
     console.error("Rate limiting error:", error);
     return {
-      success: true,
+      success: false,
       limit: config.maxRequests,
-      remaining: config.maxRequests,
+      remaining: 0,
       reset: 0,
-      retryAfter: 0,
+      retryAfter: 60,
     };
   }
 }
