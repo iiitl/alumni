@@ -3,18 +3,22 @@ import mongoose from "mongoose"
 
 // Define schema ONLY once
 const LogSchema = new mongoose.Schema({
-  email: String,
-  type: String,
-  timestamp: { type: Date, default: Date.now },
+  email: { 
+    type: String, 
+    required: true,
+    match: /@iiitl\.ac\.in$/i
+  },
+  type: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now, expires: "30d" },
 })
 
-// Prevent model overwrite (important in Next.js)
+// Prevent model overwrite
 const Log =
   mongoose.models.Log || mongoose.model("Log", LogSchema)
 
 export async function logEvent(email: string, type: string) {
   try {
-    const client = await clientPromise
+    await clientPromise
 
     // ensure mongoose is connected
     if (mongoose.connection.readyState === 0) {

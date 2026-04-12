@@ -1,5 +1,8 @@
+"use client"
+
 import Link from "next/link";
 import Image from "next/image";
+import { useSession, signOut } from "next-auth/react";
 
 const navLinks: { href: string; label: string }[] = [
   { href: "/about", label: "About" },
@@ -11,6 +14,8 @@ const navLinks: { href: string; label: string }[] = [
 ];
 
 export function Navbar() {
+  const { data: session } = useSession();
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -46,18 +51,29 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/login"
-            className="hidden sm:inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-foreground/80 hover:text-brand"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/register"
-            className="inline-flex h-9 items-center rounded-md bg-brand px-4 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
-          >
-            Join Network
-          </Link>
+          {session ? (
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="inline-flex h-9 items-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground/80 hover:text-brand"
+            >
+              Sign out
+            </button>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden sm:inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-foreground/80 hover:text-brand"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex h-9 items-center rounded-md bg-brand px-4 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+              >
+                Join Network
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -4,10 +4,6 @@ import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 
 export default function SetPasswordPage() {
-  const searchParams = useSearchParams()
-
-  const email = searchParams.get("email")
-
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -21,14 +17,14 @@ export default function SetPasswordPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ password }),
       })
 
       const data = await res.json()
       console.log("API response:", data)
 
       if (res.ok) {
-        // 🔥 force reload so session updates
+        // force reload so session updates
         window.location.href = "/"
       } else {
         console.error("Error response:", data)

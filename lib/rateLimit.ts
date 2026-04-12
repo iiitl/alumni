@@ -1,24 +1,44 @@
-const requests = new Map<string, number[]>()
+import mongoose from "mongoose"
+import clientPromise from "./mongodb"
 
-export function checkRateLimit(email: string) {
-  const now = Date.now()
-  const windowMs = 60 * 60 * 1000 // 1 hour
+const RateLimitSchema = new mongoose.Schema({
+  email: String,
+  timestamp: { type: Date, default: Date.now, expires: "1h" },
+})
 
-  if (!requests.has(email)) {
-    requests.set(email, [])
-  }
+const RateLimit =
+  mongoose.models.RateLimit || mongoose.model("RateLimit", RateLimitSchema)
 
-  const timestamps = requests.get(email)!
-
-  // remove old timestamps
-  const filtered = timestamps.filter((t) => now - t < windowMs)
-
-  if (filtered.length >= 5) {
+export async function checkRateLimit(email: string) {
+  if (!email || typeof email !== "string") {
     return { allowed: false }
   }
 
-  filtered.push(now)
-  requests.set(email, filtered)
+  const normalizedEmail = email.toLowerCase()
 
-  return { allowed: true }
+  try {
+    const client = await clientPromise
+
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect(process.env.MONGODB_URI!)
+    }
+
+    const windowMs = 60 * 60 * 1000 // 1 hour
+    const oneHourAgo = new Date(Date.now() - windowMs)
+
+    const count = await RateLimit.countDocuments({
+      email: normalizedEmail,
+      timestamp: { $gte: oneHourAgo },
+    })
+
+    if (count >= 5) {
+      return { allowed: false }
+    }
+
+    await RateLimit.create({ email: normalizedEmail })
+    return { allowed: true }
+  } catch (err) {
+    console.error("Rate limit db error:", err)
+    return { allowed: false }
+  }
 }

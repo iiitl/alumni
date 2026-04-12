@@ -1,7 +1,9 @@
+import { ObjectId } from "mongodb"
 import Google from "next-auth/providers/google"
 import NextAuth from "next-auth"
 import Email from "next-auth/providers/email"
-import { MongoDBAdapter } from "@auth/mongodb-adapter"
+import { MongoDBAdapter } from "@next-auth/mongodb-adapter"
+import type { NextAuthOptions } from "next-auth"
 import clientPromise from "./mongodb"
 import { Resend } from "resend"
 import { checkRateLimit } from "./rateLimit"
@@ -11,7 +13,7 @@ import bcrypt from "bcryptjs"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const handler = NextAuth({
+export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
 
   providers: [
@@ -20,8 +22,16 @@ const handler = NextAuth({
 
       async sendVerificationRequest({ identifier, url }) {
 
+        // DOMAIN CHECK
+        if (!/@iiitl\.ac\.in$/i.test(identifier)) {
+          console.log("Domain rejected:", identifier)
+          await logEvent(identifier, "INVALID_DOMAIN")
+          throw new Error("Only @iiitl.ac.in emails are allowed")
+        }
+
         // RATE LIMIT CHECK
-        if (!checkRateLimit(identifier)) {
+        const rateLimitResult = await checkRateLimit(identifier)
+        if (!rateLimitResult.allowed) {
           console.log("Rate limit exceeded:", identifier)
           await logEvent(identifier, "RATE_LIMIT")
           throw new Error("Too many requests. Please try again later.")
@@ -54,12 +64,17 @@ const handler = NextAuth({
         password: {},
       },
       async authorize(credentials) {
+        if (!credentials?.email || !/@iiitl\.ac\.in$/i.test(credentials.email)) {
+          console.log("Credentials domain rejected:", credentials?.email)
+          return null
+        }
+
         const client = await clientPromise
         const db = client.db()
         
         const user = await db
         .collection("users")
-        .findOne({ email: credentials?.email })
+        .findOne({ email: credentials.email })
         
         if (!user) return null
         if (!user.password) return null
@@ -93,10 +108,27 @@ const handler = NextAuth({
 
       return true
     },
-    async session({ session, user }) {
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async session({ session, user }: any) {
       if (!user.password) {
-        // mark user as incomplete
-        session.user.needsPassword = true
+        // Query linked accounts only during the password-less onboarding phase
+        const client = await clientPromise
+        const db = client.db()
+        const targetIdObj = typeof user.id === "string" ? new ObjectId(user.id) : (user._id || user.id)
+        const targetIdStr = typeof user.id === "string" ? user.id : String(user._id || user.id)
+        
+        const googleAccount = await db.collection("accounts").findOne({ 
+          $or: [
+            { userId: targetIdObj },
+            { userId: targetIdStr }
+          ],
+          provider: "google" 
+        })
+
+        if (googleAccount) {
+          session.user.needsPassword = true
+        }
       }
       return session
     },
@@ -105,11 +137,14 @@ const handler = NextAuth({
   session: {
     strategy: "database",
     maxAge: 30 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60,
   },
 
   pages: {
     signIn: "/login",
   },
-})
+}
+
+const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST }
