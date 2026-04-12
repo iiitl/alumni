@@ -1,11 +1,16 @@
-import mongoose, { Schema } from "mongoose"
+import mongoose from "mongoose"
+import crypto from "crypto"
 
-const PasswordResetTokenSchema = new Schema({
-  email:     { type: String, required: true, lowercase: true, trim: true },
-  token:     { type: String, required: true, unique: true },
-  expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
+export function hashToken(raw: string): string {
+  return crypto.createHash("sha256").update(raw).digest("hex")
+}
+
+const PasswordResetTokenSchema = new mongoose.Schema({
+  tokenHash: { type: String, required: true, unique: true },
+  email:     { type: String, required: true },
+  expiresAt: { type: Date,   required: true, index: { expireAfterSeconds: 0 } },
 })
 
 export const PasswordResetToken =
-  mongoose.models.PasswordResetToken ||
+  mongoose.models.PasswordResetToken ??
   mongoose.model("PasswordResetToken", PasswordResetTokenSchema)

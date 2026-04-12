@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs"
 import { StagingUser } from "../models/StagingUser"
 import { connectDB } from "./db"
 import { cookies } from "next/headers"
+import crypto from "crypto"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -60,7 +61,7 @@ export const authOptions: NextAuthOptions = {
         })
       },
     }),
-    
+
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
@@ -84,18 +85,18 @@ export const authOptions: NextAuthOptions = {
 
         const client = await clientPromise
         const db = client.db()
-        
+
         const user = await db
           .collection("users")
           .findOne({ email: credentials.email.trim().toLowerCase() })
-        
+
         if (!user) return null
         if (!user.password) return null
         const isValid = await bcrypt.compare(
           credentials?.password || "",
           user.password
         )
-        
+
         if (!isValid) return null
         return user
       },
@@ -125,30 +126,35 @@ export const authOptions: NextAuthOptions = {
 
         if (!existingUser) {
           await connectDB()
+          const oneTimeToken = crypto.randomBytes(32).toString("hex")
+
           await StagingUser.findOneAndUpdate(
             { email },
             {
               $set: {
-                name:      user.name,
-                image:     user.image,
-                googleId:  account.providerAccountId,
-                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                name:         user.name,
+                image:        user.image,
+                googleId:     account.providerAccountId,
+                oneTimeToken,
+                expiresAt:    new Date(Date.now() + 15 * 60 * 1000),
               },
             },
             { upsert: true, returnDocument: "after" }
           )
-          cookieStore.set("google-redirect", `set-password:${email}`, {
+
+          // Pass the token via cookie instead of the bare email
+          cookieStore.set("google-redirect", `set-password:${oneTimeToken}`, {
             httpOnly: true,
             sameSite: "lax",
-            path: "/",
-            maxAge: 60,
+            path:     "/",
+            maxAge:   60 * 15,
           })
         } else {
           cookieStore.set("google-redirect", `login:${email}`, {
             httpOnly: true,
             sameSite: "lax",
-            path: "/",
-            maxAge: 60,
+            path:     "/",
+            maxAge:   60,
           })
         }
 
@@ -169,13 +175,13 @@ export const authOptions: NextAuthOptions = {
         const db = client.db()
         const targetIdObj = typeof user.id === "string" ? new ObjectId(user.id) : (user._id || user.id)
         const targetIdStr = typeof user.id === "string" ? user.id : String(user._id || user.id)
-        
-        const googleAccount = await db.collection("accounts").findOne({ 
+
+        const googleAccount = await db.collection("accounts").findOne({
           $or: [
             { userId: targetIdObj },
             { userId: targetIdStr }
           ],
-          provider: "google" 
+          provider: "google"
         })
 
         if (googleAccount) {

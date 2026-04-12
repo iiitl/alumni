@@ -3,16 +3,16 @@
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 
-export default function SetPasswordPage() {
+export default function SetPasswordClient() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const searchParams = useSearchParams()
-  const email = searchParams.get("email")
+  const token = searchParams.get("token")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!email) {
+    if (!token) {
       alert("Invalid link. Please sign in with Google again.")
       return
     }
@@ -23,24 +23,25 @@ export default function SetPasswordPage() {
       const res = await fetch("/api/set-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ token, password }),
       })
 
       const data = await res.json()
 
       if (res.ok) {
-        // Auto sign in with the credentials they just created
+        // Auto sign in with the credentials they just created.
+        // We use the email returned by the API since we no longer
+        // have it on the client (the URL only carries the token).
         const loginRes = await fetch("/api/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: data.email, password }),
         })
 
         if (loginRes.ok) {
           window.location.href = "/"
         } else {
-          // Password was set but auto-login failed — send to login with email prefilled
-          window.location.href = `/login?email=${encodeURIComponent(email)}`
+          window.location.href = `/login?email=${encodeURIComponent(data.email)}`
         }
       } else {
         alert(data.error || "Something went wrong")

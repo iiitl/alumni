@@ -9,6 +9,8 @@ export async function POST(req: Request) {
     const { name, email, branch, graduationYear, password } = body
 
     if (!name || !email || !branch || !password) {
+      // Log missing-fields rejections so abuse patterns are visible
+      await logEvent(email ?? null, "REGISTER_REJECTED_MISSING_FIELDS")
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
 
     const client = await clientPromise
     const db = client.db()
-    
+
     const existingUser = await db.collection("users").findOne({ email: canonical })
     if (existingUser) {
       await logEvent(canonical, "REGISTER_REJECTED_DUPLICATE")
@@ -45,15 +47,33 @@ export async function POST(req: Request) {
 
     const hash = await bcrypt.hash(password, 10)
 
-    await db.collection("users").insertOne({
-      name,
-      email:          canonical,
-      branch,
-      graduationYear,
-      password:       hash,
-      createdAt:      new Date(),
-    })
-    
+    try {
+      await db.collection("users").insertOne({
+        name,
+        email:          canonical,
+        branch,
+        graduationYear,
+        password:       hash,
+        createdAt:      new Date(),
+      })
+    } catch (err: unknown) {
+      // Handle the race where two concurrent requests both pass the findOne
+      // check above and one then hits a duplicate-key error on insert
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        (err as { code: number }).code === 11000
+      ) {
+        await logEvent(canonical, "REGISTER_REJECTED_DUPLICATE")
+        return NextResponse.json(
+          { error: "An account with this email already exists." },
+          { status: 409 }
+        )
+      }
+      throw err
+    }
+
     return NextResponse.json({ success: true })
 
   } catch (err: unknown) {

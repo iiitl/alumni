@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { connectDB } from "@/lib/db"
-import { PasswordResetToken } from "@/models/PasswordResetToken"
+import { PasswordResetToken, hashToken } from "@/models/PasswordResetToken"
 import clientPromise from "@/lib/mongodb"
 import { Resend } from "resend"
 import crypto from "crypto"
@@ -28,20 +28,20 @@ export async function POST(req: Request) {
 
     await PasswordResetToken.deleteOne({ email: canonical })
 
-    const token = crypto.randomBytes(32).toString("hex")
+    const rawToken = crypto.randomBytes(32).toString("hex")
 
     await PasswordResetToken.create({
-      email: canonical,
-      token,
+      email:     canonical,
+      tokenHash: hashToken(rawToken),
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     })
 
-    const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`
-    console.log("Reset URL:", resetUrl)
+    // Do NOT log resetUrl — it contains a bearer token that grants account access
+    const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${rawToken}`
 
     await resend.emails.send({
-      from: process.env.EMAIL_FROM!,
-      to: canonical,
+      from:    process.env.EMAIL_FROM!,
+      to:      canonical,
       subject: "Reset your IIITL Alumni password",
       html: `
         <p>You requested a password reset.</p>

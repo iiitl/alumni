@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     const client = await clientPromise
     const db = client.db()
-    
+
     const user = await db.collection("users").findOne({ email: canonical })
     if (!user || !user.password) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 400 })
@@ -38,19 +38,22 @@ export async function POST(req: Request) {
 
     await db.collection("sessions").insertOne({
       sessionToken,
-      userId: user._id,
+      userId:  user._id,
       expires,
     })
 
-    const useSecureCookies = req.url.startsWith("https://")
-    const cookieName = useSecureCookies ? "__Secure-next-auth.session-token" : "next-auth.session-token"
     
+    const useSecureCookies = process.env.NODE_ENV === "production"
+    const cookieName = useSecureCookies
+      ? "__Secure-next-auth.session-token"
+      : "next-auth.session-token"
+
     const cookieStore = await cookies()
     cookieStore.set(cookieName, sessionToken, {
       httpOnly: true,
       sameSite: "lax",
-      secure: useSecureCookies,
-      path: "/",
+      secure:   useSecureCookies,
+      path:     "/",
       expires,
     })
 

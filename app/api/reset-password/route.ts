@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { connectDB } from "@/lib/db"
-import { PasswordResetToken } from "@/models/PasswordResetToken"
+import { PasswordResetToken, hashToken } from "@/models/PasswordResetToken"
 import clientPromise from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
 
@@ -14,8 +14,10 @@ export async function POST(req: Request) {
 
     await connectDB()
 
-    const record = await PasswordResetToken.findOne({
-      token,
+    // findOneAndDelete: atomically consume the token so two concurrent
+    // requests cannot both pass and write different passwords
+    const record = await PasswordResetToken.findOneAndDelete({
+      tokenHash: hashToken(token),
       expiresAt: { $gt: new Date() },
     })
 
@@ -31,12 +33,14 @@ export async function POST(req: Request) {
     const client = await clientPromise
     const db = client.db()
 
-    await db
+    const result = await db
       .collection("users")
       .updateOne({ email: record.email }, { $set: { password: hashed } })
 
-    // Delete the token so it can't be reused
-    await PasswordResetToken.deleteOne({ token })
+    // Fail explicitly if no account matched — don't silently return 200
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Account not found." }, { status: 404 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (err) {

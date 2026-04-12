@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/request"
+import type { NextRequest } from "next/server"
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = req.nextUrl
@@ -23,10 +23,12 @@ export async function middleware(req: NextRequest) {
     if (googleRedirect) {
       const colonIndex = googleRedirect.indexOf(":")
       const destination = googleRedirect.slice(0, colonIndex) // "set-password" or "login"
-      const email = googleRedirect.slice(colonIndex + 1)
+      const value = googleRedirect.slice(colonIndex + 1)
+
+      const paramName = destination === "set-password" ? "token" : "email"
 
       const res = NextResponse.redirect(
-        `${origin}/${destination}?email=${encodeURIComponent(email)}`
+        `${origin}/${destination}?${paramName}=${encodeURIComponent(value)}`
       )
       res.cookies.delete("google-redirect")
       return res
@@ -34,7 +36,7 @@ export async function middleware(req: NextRequest) {
   }
 
   if (pathname === "/access-denied") {
-    const res = NextResponse.next()
+        const res = NextResponse.next()
     res.cookies.delete("google-redirect")
     return res
   }

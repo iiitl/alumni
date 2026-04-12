@@ -6,23 +6,24 @@ import { StagingUser } from "@/models/StagingUser"
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json()
+    const { token, password } = await req.json()
 
-    if (!email || !password) {
+    if (!token || !password) {
       return NextResponse.json(
         { error: "Missing fields" },
         { status: 400 }
       )
     }
 
-    const canonical = email.trim().toLowerCase()
-
     await connectDB()
 
-    // StagingUser is the proof this is a legitimate pending Google signup
-    const staged = await StagingUser.findOne({
-      email: canonical,
-      expiresAt: { $gt: new Date() },
+    // Atomically find and consume the staging record by the server-issued
+    // one-time token, not by a client-supplied email.
+    // Only the Google OAuth callback that created this token could have known it,
+    // so possession of the token is proof of a completed Google auth.
+    const staged = await StagingUser.findOneAndDelete({
+      oneTimeToken: token,
+      expiresAt:    { $gt: new Date() },
     })
 
     if (!staged) {
@@ -35,10 +36,8 @@ export async function POST(req: Request) {
     const client = await clientPromise
     const db = client.db()
 
-    // Make sure the user doesn't already exist
-    const existing = await db.collection("users").findOne({ email: canonical })
+    const existing = await db.collection("users").findOne({ email: staged.email })
     if (existing) {
-      await StagingUser.deleteOne({ email: canonical })
       return NextResponse.json(
         { error: "Account already exists. Please log in." },
         { status: 400 }
@@ -47,16 +46,13 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Atomically create the real user and delete the staging record
     await db.collection("users").insertOne({
       name:      staged.name,
-      email:     canonical,
+      email:     staged.email,
       image:     staged.image,
       password:  hashedPassword,
       createdAt: new Date(),
     })
-
-    await StagingUser.deleteOne({ email: canonical })
 
     return NextResponse.json({ success: true })
   } catch (err) {
