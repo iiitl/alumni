@@ -1,14 +1,13 @@
 import { MongoClient } from "mongodb"
 
 const uri = process.env.MONGODB_URI!
-const options = {}
 
 declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined
 }
 
 if (!global._mongoClientPromise) {
-  const client = new MongoClient(uri, options)
+  const client = new MongoClient(uri)
   global._mongoClientPromise = client.connect()
 }
 

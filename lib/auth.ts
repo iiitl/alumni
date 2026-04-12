@@ -11,6 +11,8 @@ import { logEvent } from "./logger"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { StagingUser } from "../models/StagingUser"
+import { connectDB } from "./db"
+import { cookies } from "next/headers"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -20,6 +22,7 @@ export const authOptions: NextAuthOptions = {
   adapter: {
     ...baseAdapter,
     async createUser(user) {
+      await connectDB()
       const isStaged = await StagingUser.findOne({
         email: user.email?.toLowerCase(),
       })
@@ -84,7 +87,7 @@ export const authOptions: NextAuthOptions = {
         
         const user = await db
           .collection("users")
-          .findOne({ email: credentials.email })
+          .findOne({ email: credentials.email.trim().toLowerCase() })
         
         if (!user) return null
         if (!user.password) return null
@@ -108,21 +111,22 @@ export const authOptions: NextAuthOptions = {
         return false
       }
 
-      // GOOGLE restriction
+      // GOOGLE — verify domain, stage new users, always block direct session
       if (account?.provider === "google") {
         if (profile?.hd !== "iiitl.ac.in") {
           await logEvent(profile?.email || "", "GOOGLE_REJECT")
           return false
         }
 
+        const email = user.email!.toLowerCase()
         const db = (await clientPromise).db()
-        const existingUser = await db
-          .collection("users")
-          .findOne({ email: user.email!.toLowerCase() })
+        const existingUser = await db.collection("users").findOne({ email })
+        const cookieStore = await cookies()
 
         if (!existingUser) {
+          await connectDB()
           await StagingUser.findOneAndUpdate(
-            { email: user.email!.toLowerCase() },
+            { email },
             {
               $set: {
                 name:      user.name,
@@ -131,13 +135,31 @@ export const authOptions: NextAuthOptions = {
                 expiresAt: new Date(Date.now() + 10 * 60 * 1000),
               },
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: "after" }
           )
-          return `/set-password?email=${encodeURIComponent(user.email!.toLowerCase())}`
+          cookieStore.set("google-redirect", `set-password:${email}`, {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60,
+          })
+        } else {
+          cookieStore.set("google-redirect", `login:${email}`, {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60,
+          })
         }
+
+        return false
       }
 
       return true
+    },
+
+    async redirect({ url, baseUrl }) {
+      return url.startsWith(baseUrl) ? url : baseUrl
     },
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -172,6 +194,7 @@ export const authOptions: NextAuthOptions = {
 
   pages: {
     signIn: "/login",
+    error: "/access-denied",
   },
 }
 

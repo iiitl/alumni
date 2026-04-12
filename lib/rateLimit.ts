@@ -1,4 +1,5 @@
 import mongoose from "mongoose"
+import { connectDB } from "./db"
 
 const RateLimitSchema = new mongoose.Schema({
   email:       { type: String, required: true, unique: true },
@@ -17,16 +18,14 @@ export async function checkRateLimit(email: string) {
   const normalizedEmail = email.toLowerCase()
 
   try {
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(process.env.MONGODB_URI!)
-    }
+    await connectDB()
 
     const windowStart = new Date(Date.now() - 60 * 60 * 1000)
 
     const bucket = await RateLimit.findOneAndUpdate(
       { email: normalizedEmail, windowStart: { $gte: windowStart } },
       { $inc: { count: 1 }, $setOnInsert: { windowStart: new Date() } },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     )
 
     if (bucket.count > 5) {

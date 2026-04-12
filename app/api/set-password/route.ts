@@ -1,55 +1,62 @@
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { connectDB } from "@/lib/db"
+import { StagingUser } from "@/models/StagingUser"
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    const { email, password } = await req.json()
 
-    if (!session?.user?.email) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+        { error: "Missing fields" },
+        { status: 400 }
       )
     }
 
-    const { password } = await req.json()
+    const canonical = email.trim().toLowerCase()
 
-    if (!password) {
+    await connectDB()
+
+    // StagingUser is the proof this is a legitimate pending Google signup
+    const staged = await StagingUser.findOne({
+      email: canonical,
+      expiresAt: { $gt: new Date() },
+    })
+
+    if (!staged) {
       return NextResponse.json(
-        { error: "Missing password" },
-        { status: 400 }
+        { error: "Session expired or invalid. Please sign in with Google again." },
+        { status: 401 }
       )
     }
 
     const client = await clientPromise
     const db = client.db()
 
-    const hashedPassword = await bcrypt.hash(password, 10)
-
-    const result = await db.collection("users").updateOne(
-      { 
-        email: session.user.email,
-        $or: [
-          { password: { $exists: false } },
-          { password: null },
-          { password: "" }
-        ]
-      },
-      {
-        $set: { password: hashedPassword },
-        $unset: { requiresPasswordSetup: "" }
-      }
-    )
-
-    if (result.modifiedCount === 0) {
+    // Make sure the user doesn't already exist
+    const existing = await db.collection("users").findOne({ email: canonical })
+    if (existing) {
+      await StagingUser.deleteOne({ email: canonical })
       return NextResponse.json(
-        { error: "Password already set or user not found" },
+        { error: "Account already exists. Please log in." },
         { status: 400 }
       )
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Atomically create the real user and delete the staging record
+    await db.collection("users").insertOne({
+      name:      staged.name,
+      email:     canonical,
+      image:     staged.image,
+      password:  hashedPassword,
+      createdAt: new Date(),
+    })
+
+    await StagingUser.deleteOne({ email: canonical })
 
     return NextResponse.json({ success: true })
   } catch (err) {

@@ -6,29 +6,44 @@ import { useSearchParams } from "next/navigation"
 export default function SetPasswordPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams()
+  const email = searchParams.get("email")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!email) {
+      alert("Invalid link. Please sign in with Google again.")
+      return
+    }
+
     setLoading(true)
 
     try {
       const res = await fetch("/api/set-password", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ password }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       })
 
       const data = await res.json()
-      console.log("API response:", data)
 
       if (res.ok) {
-        // force reload so session updates
-        window.location.href = "/"
+        // Auto sign in with the credentials they just created
+        const loginRes = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        })
+
+        if (loginRes.ok) {
+          window.location.href = "/"
+        } else {
+          // Password was set but auto-login failed — send to login with email prefilled
+          window.location.href = `/login?email=${encodeURIComponent(email)}`
+        }
       } else {
-        console.error("Error response:", data)
-        alert("Something went wrong")
+        alert(data.error || "Something went wrong")
       }
     } catch (err) {
       console.error("Request failed:", err)
