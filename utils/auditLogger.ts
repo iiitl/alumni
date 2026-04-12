@@ -7,7 +7,7 @@ interface LogAuditParams {
   action: string;
   targetType: string;
   targetId: Types.ObjectId | string;
-  diff?: Record<string, any>;
+  diff?: Record<string, unknown>;
 }
 
 /**

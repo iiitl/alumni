@@ -1,12 +1,11 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-
 export interface IAuditLog extends Document {
     actorId: mongoose.Types.ObjectId;
     action: string;
     targetType: string;
     targetId: mongoose.Types.ObjectId;
-    diff?: Record<string, any>;
+    diff?: Record<string, unknown>;
     ip?: string;
     userAgent?: string;
     createdAt: Date;
