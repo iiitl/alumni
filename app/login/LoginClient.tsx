@@ -98,6 +98,14 @@ export default function LoginClient() {
               className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
             />
           </div>
+          
+          <div>
+            <div className="flex items-center justify-between">
+              <Link href="/forgot-password" className="text-xs text-brand hover:underline">
+              Forgot password?
+              </Link>
+            </div>
+          </div>
 
           <button
             type="submit"
