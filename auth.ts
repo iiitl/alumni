@@ -1,9 +1,11 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import { sendEmail } from "./lib/email"
+import clientPromise from "./lib/mongodb"
+import { MongoDBAdapter } from "@auth/mongodb-adapter";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // adapter: yourDbAdapter,
+  adapter: MongoDBAdapter(clientPromise), 
   session: {
     strategy: "database",
     maxAge: 30 * 24 * 60 * 60, 
