@@ -48,7 +48,6 @@ export function Footer() {
             </div>
             <p className="mt-4 max-w-xs text-sm text-muted">
               A community-built hub for IIIT Lucknow alumni and students.
-              Not an official body — just a place to stay connected.
             </p>
           </div>
 
