@@ -3,6 +3,7 @@ import Google from "next-auth/providers/google"
 import { sendEmail } from "./lib/email"
 import clientPromise from "./lib/mongodb"
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
+import { limit } from "./lib/ratelimit";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: MongoDBAdapter(clientPromise), 
@@ -29,6 +30,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: "Email",
       type: "email",
       async sendVerificationRequest({ identifier, url, provider }) {
+        const { success } = await limit(`magic_link_${identifier}`, {
+          maxRequests: 5,
+          window: '1h'
+        });
+
+        if(!success) {
+          console.warn(`Rate limit exceeded for magic link: ${identifier}`);
+          throw new Error("Rate limit exceeded")
+        }
+
         try {
           await sendEmail({
             to: identifier,
@@ -62,7 +73,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (!isIiitlEmail) {
         // Returning false rejects the sign-in
-        // Later, we will look at how to log this rejection for abuse monitoring
+        console.warn(`${email} does not have the right domain`)
         return false; 
       }
 
