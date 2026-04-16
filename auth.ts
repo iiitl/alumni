@@ -3,7 +3,7 @@ import Google from "next-auth/providers/google"
 import { sendEmail } from "./lib/email"
 import clientPromise from "./lib/mongodb"
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import { limit } from "./lib/ratelimit";
+import { limit, redisClient } from "./lib/ratelimit";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: MongoDBAdapter(clientPromise), 
@@ -41,6 +41,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         try {
+          console.log(`magic link: ${url}`)
           await sendEmail({
             to: identifier,
             subject: "Sign in to the IIITL Platform",        
@@ -66,15 +67,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   ],
   callbacks: {
-    async signIn({ user, profile }) {
+    async signIn({ user, account, profile }) {
       const email = user.email || profile?.email;
       
       const isIiitlEmail = email && /@iiitl\.ac\.in$/i.test(email);
 
       if (!isIiitlEmail) {
-        // Returning false rejects the sign-in
         console.warn(`${email} does not have the right domain`)
         return false; 
+      }
+
+      if (account?.provider === "google") {
+        const db = (await clientPromise).db();
+        const existingUser = await db.collection("users").findOne({ email });
+
+        if (!existingUser) {
+          // 1. User doesn't exist yet! Let's NOT save them.
+          // 2. Temporarily store their Google profile in Redis (so we don't lose it)
+          const signupToken = crypto.randomUUID();
+          if(redisClient){
+            await redisClient.set(`pending_google_${signupToken}`, JSON.stringify({
+              name: profile?.name,
+              email: profile?.email,
+              image: profile?.picture,
+              googleAccountId: account.providerAccountId
+            }), { ex: 3600 }); // Expire in 1 hour
+          }
+
+          // 3. Abort NextAuth's automatic save and redirect to the password page
+          return `/setup-password?token=${signupToken}`; 
+        }
       }
 
       return true;
