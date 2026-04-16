@@ -44,7 +44,7 @@ export default function AboutPage() {
             },
             {
               title: "Who runs it",
-              body: "Volunteers from Axios — the Technical Society of IIITL. Open to contributions from anyone in the community.",
+              body: "Axios — the Technical Society of IIITL. Open to contributions from anyone in the community.",
             },
           ].map((b) => (
             <div
