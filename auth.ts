@@ -1,9 +1,11 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
-import { sendEmail } from "./lib/email"
-import clientPromise from "./lib/mongodb"
+import Credentials from "next-auth/providers/credentials"
+import { sendEmail } from "@/lib/email"
+import clientPromise from "@/lib/mongodb"
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import { limit, redisClient } from "./lib/ratelimit";
+import { limit, redisClient } from "@/lib/ratelimit";
+import bcrypt from "bcryptjs"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: MongoDBAdapter(clientPromise), 
@@ -41,7 +43,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         try {
-          console.log(`magic link: ${url}`)
           await sendEmail({
             to: identifier,
             subject: "Sign in to the IIITL Platform",        
@@ -65,6 +66,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       },
     },
+    Credentials({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const db = (await clientPromise).db();
+        const user = await db.collection("users").findOne({ email: credentials.email });
+
+        // If user doesn't exist or has no password 
+        if (!user || !user.hashedPassword) return null;
+
+        const isValid = await bcrypt.compare(credentials.password as string, user.hashedPassword);
+
+        if (!isValid) return null;
+
+        // Return the user object if password matches
+        return { id: user._id.toString(), email: user.email, name: user.name };
+      }
+    })
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -91,7 +115,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               email: profile?.email,
               image: profile?.picture,
               googleAccountId: account.providerAccountId
-            }), { ex: 3600 }); // Expire in 1 hour
+            }), { ex: 3600 });
           }
 
           // 3. Abort NextAuth's automatic save and redirect to the password page
