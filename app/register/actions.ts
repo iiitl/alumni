@@ -45,8 +45,11 @@ export async function handleRegistration(prevState: unknown, formData: FormData)
     });
 
     return { success: true, message: "Check your email to verify your account." };
-  } catch (error: any) {
-    return { success: false, message: error.message || "Registration failed." };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: "Registration failed." };
   }
 }
 

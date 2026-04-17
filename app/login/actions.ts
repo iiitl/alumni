@@ -21,6 +21,25 @@ export async function signInWithMagicLink(formData: FormData) {
     }
 }
 
+export async function signInWithCredentials(formData: FormData) {
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    if (!email || !password || !/@iiitl\.ac\.in$/i.test(email)) {
+        redirect("/login?error=InvalidCredentials")
+    }
+
+    try {
+        await signIn("credentials", { email, password, redirectTo: "/" })
+    } catch (error) {
+        if (error instanceof AuthError) {
+            // AuthError translates to invalid credentials
+            redirect("/login?error=InvalidCredentials")
+        }
+        throw error 
+    }
+}
+
 export async function signInWithGoogle() {
   try {
       await signIn("google", { redirectTo: "/" })
