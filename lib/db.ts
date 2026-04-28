@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
 declare global {
   var mongoose: {
     conn: mongoose.Mongoose | null;
