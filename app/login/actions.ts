@@ -3,11 +3,22 @@
 import { signIn } from "@/auth"
 import { AuthError } from "next-auth"
 import { redirect } from "next/navigation"
+import { limit } from "@/lib/ratelimit"
 
 export async function signInWithMagicLink(formData: FormData) {
     const email = formData.get("email") as string;
     
     if (!email || !/@iiitl\.ac\.in$/i.test(email)) {
+        redirect("/login?error=AccessDenied")
+    }
+
+    // Pre-check rate limits before calling Auth.js
+    const { success } = await limit(`magic_link_${email}`, {
+        maxRequests: 5,
+        window: '1h'
+    });
+
+    if (!success) {
         redirect("/login?error=AccessDenied")
     }
 

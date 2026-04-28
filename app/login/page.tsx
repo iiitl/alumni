@@ -54,6 +54,7 @@ export default function LoginPage() {
           <button
             formAction={signInWithGoogle}
             type="submit"
+            formNoValidate
             className="inline-flex h-11 w-full items-center justify-center rounded-md border border-border bg-background text-sm font-semibold text-white hover:bg-background-700"
           >
             <span className="h-5 w-5 mr-1"><img src="/google.svg" alt="" className="w-full" /></span>Sign-in with Google

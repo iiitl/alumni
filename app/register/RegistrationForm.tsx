@@ -55,7 +55,7 @@ export default function RegisterForm() {
         <div className="h-0.5 bg-background-700 w-full"></div>
       </div>
       <div className="sm:col-span-2">
-        <button formAction={signUpWithGoogle} type="submit" className="inline-flex h-11 w-full items-center justify-center rounded-md bg-background border border-border text-sm font-semibold text-white hover:bg-background-700">
+        <button formAction={signUpWithGoogle} formNoValidate type="submit" className="inline-flex h-11 w-full items-center justify-center rounded-md bg-background border border-border text-sm font-semibold text-white hover:bg-background-700">
           <span className="h-5 w-5 mr-1"><img src="/google.svg" alt="" className="w-full" /></span>
           Sign-up with Google
         </button>

@@ -6,11 +6,11 @@ import clientPromise from "@/lib/mongodb"
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { limit, redisClient } from "@/lib/ratelimit";
 import bcrypt from "bcryptjs"
+import { randomUUID } from "crypto"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: MongoDBAdapter(clientPromise), 
   session: {
-    strategy: "database",
     maxAge: 30 * 24 * 60 * 60, 
     updateAge: 24 * 60 * 60, 
   },
@@ -18,6 +18,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      checks: ["pkce"],
       authorization: {
         params: {
           prompt: "consent",
@@ -31,7 +32,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       id: "email",
       name: "Email",
       type: "email",
-      async sendVerificationRequest({ identifier, url, provider }) {
+      async sendVerificationRequest({ identifier, url }) {
         const { success } = await limit(`magic_link_${identifier}`, {
           maxRequests: 5,
           window: '1h'
@@ -92,6 +93,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
+      // Check if the email is actually from @iiitl.ac.in
+      if (account?.provider === "google") {
+        const hd = profile?.hd || profile?.domain;
+        if (hd !== "iiitl.ac.in") {
+          console.warn(`Denied Google sign-in: Incorrect Hosted Domain '${hd}'`);
+          return false;
+        }
+      }
+
       const email = user.email || profile?.email;
       
       const isIiitlEmail = email && /@iiitl\.ac\.in$/i.test(email);
@@ -106,20 +116,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const existingUser = await db.collection("users").findOne({ email });
 
         if (!existingUser) {
-          // 1. User doesn't exist yet! Let's NOT save them.
-          // 2. Temporarily store their Google profile in Redis (so we don't lose it)
-          const signupToken = crypto.randomUUID();
-          if(redisClient){
-            await redisClient.set(`pending_google_${signupToken}`, JSON.stringify({
-              name: profile?.name,
-              email: profile?.email,
-              image: profile?.picture,
-              googleAccountId: account.providerAccountId
-            }), { ex: 3600 });
+          if (!redisClient) {
+            console.error("Google signup blocked: redisClient unavailable for pending signup token storage")
+            return "/login?error=SignupUnavailable"
           }
 
-          // 3. Abort NextAuth's automatic save and redirect to the password page
-          return `/setup-password?token=${signupToken}`; 
+          const signupToken = randomUUID();
+          try {
+            const setResult = await redisClient.set(
+              `pending_google_${signupToken}`,
+              JSON.stringify({
+                name: profile?.name,
+                email: profile?.email,
+                image: profile?.picture,
+                googleAccountId: account.providerAccountId,
+              }),
+              { ex: 3600 }
+            )
+
+            if (!setResult) {
+              console.error("Google signup blocked: failed to persist pending signup token")
+              return "/login?error=SignupUnavailable"
+            }
+          } catch (error) {
+            console.error("Google signup blocked: redis set failed", error)
+            return "/login?error=SignupUnavailable"
+          }
+
+          return `/setup-password?token=${signupToken}`;
+        }
+
+        const linkedGoogleAccount = await db.collection("accounts").findOne({
+          userId: existingUser._id,
+          provider: "google",
+        })
+
+        if (!linkedGoogleAccount) {
+          console.warn(`Google sign-in rejected: credentials-only account for ${email}`)
+          return "/login?error=OAuthAccountNotLinked"
         }
       }
 

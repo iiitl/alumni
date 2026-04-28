@@ -20,15 +20,18 @@ export async function GET(req: NextRequest) {
   // 2. Atomic Save to MongoDB
   const db = (await clientPromise).db();
   
-  // Ensure we don't accidentally create duplicates if they click twice
-  const existing = await db.collection("users").findOne({ email: pendingUser.email });
-  if (!existing) {
-    await db.collection("users").insertOne({
-      ...pendingUser,
-      emailVerified: new Date(),
-      createdAt: new Date(),
-    });
-  }
+  // Atomic upsert — safe under concurrent clicks / retries.
+  await db.collection("users").updateOne(
+    { email: pendingUser.email },
+    {
+      $setOnInsert: {
+        ...pendingUser,
+        emailVerified: new Date(),
+        createdAt: new Date(),
+      },
+    },
+    { upsert: true }
+  );
 
   // 3. Delete the token from Redis
   await redisClient.del(`verify_${token}`);
