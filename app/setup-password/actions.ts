@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import clientPromise from "@/lib/mongodb";
+import { getMongoClient } from "@/lib/mongodb";
 import { redisClient } from "@/lib/ratelimit";
 import { redirect } from "next/navigation";
 import { isIiitlEmail, normalizeEmail } from "@/lib/auth-utils";
@@ -62,7 +62,7 @@ export async function completeGoogleSignup(token: string, formData: FormData) {
     redirect("/login?error=InvalidToken");
   }
 
-  const db = (await clientPromise).db();
+  const db = (await getMongoClient()).db();
 
   // 2. Someone may have registered this email while the token was pending.
   const existingUser = await db.collection("users").findOne({ email: pending.email }, { projection: { _id: 1 } });
@@ -74,14 +74,24 @@ export async function completeGoogleSignup(token: string, formData: FormData) {
 
   // 3. Create the user and link the Google account. If linking fails, remove
   // the user again so no half-created account is left behind.
-  const { insertedId } = await db.collection("users").insertOne({
-    name: pending.name,
-    email: pending.email,
-    image: pending.image,
-    hashedPassword,
-    emailVerified: new Date(), // They proved email ownership via Google
-    createdAt: new Date(),
-  });
+  let insertedId;
+  try {
+    ({ insertedId } = await db.collection("users").insertOne({
+      name: pending.name,
+      email: pending.email,
+      image: pending.image,
+      hashedPassword,
+      emailVerified: new Date(), // They proved email ownership via Google
+      createdAt: new Date(),
+    }));
+  } catch (error) {
+    // The unique index on users.email caught a registration that landed
+    // between the check above and this insert.
+    if ((error as { code?: unknown }).code === 11000) {
+      redirect("/login?error=OAuthAccountNotLinked");
+    }
+    throw error;
+  }
 
   try {
     await db.collection("accounts").insertOne({

@@ -8,7 +8,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { redisClient, limit } from "@/lib/ratelimit";
 import { sendEmail } from "@/lib/email";
-import clientPromise from "@/lib/mongodb";
+import { getMongoClient } from "@/lib/mongodb";
 import { getClientIp, isIiitlEmail, normalizeEmail } from "@/lib/auth-utils";
 
 export type RegistrationState = { success: boolean; message: string } | null;
@@ -64,9 +64,12 @@ export async function handleRegistration(
     const emailLimit = await limit(`verify_email_${email}`, { maxRequests: 3, window: "1h" });
     if (!emailLimit.success) throw new RegistrationError("Verification emails are being sent too quickly. Please check your inbox or wait an hour.");
 
-    // 4. Existing members get a heads-up email instead of an error, so the
+    // 4. Hash before the existence check so both branches take similar time.
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 5. Existing members get a heads-up email instead of an error, so the
     // form can't be used to find out who is registered.
-    const db = (await clientPromise).db();
+    const db = (await getMongoClient()).db();
     const existingUser = await db.collection("users").findOne({ email }, { projection: { _id: 1 } });
     if (existingUser) {
       await sendEmail({
@@ -77,8 +80,7 @@ export async function handleRegistration(
       return { success: true, message: CHECK_EMAIL_MESSAGE };
     }
 
-    // 5. Hash the password and hold the pending user until the email is verified
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 6. Hold the pending user until the email is verified
     const token = crypto.randomUUID();
 
     const pendingUser = {

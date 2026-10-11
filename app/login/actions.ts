@@ -4,7 +4,7 @@ import { signIn } from "@/auth"
 import { AuthError } from "next-auth"
 import { redirect } from "next/navigation"
 import { limit } from "@/lib/ratelimit"
-import clientPromise from "@/lib/mongodb"
+import { getMongoClient } from "@/lib/mongodb"
 import { isIiitlEmail, normalizeEmail } from "@/lib/auth-utils"
 
 export async function signInWithMagicLink(formData: FormData) {
@@ -27,7 +27,7 @@ export async function signInWithMagicLink(formData: FormData) {
 
     // Unknown emails get the same "check your inbox" page as members, so the
     // form can't be used to find out who has an account.
-    const db = (await clientPromise).db();
+    const db = (await getMongoClient()).db();
     const existingUser = await db.collection("users").findOne({ email }, { projection: { _id: 1 } });
     if (!existingUser) {
         console.warn({ severity: "WARNING", event: "AUTH_SIGNIN_REJECTED", reason: "magic_link_unknown_user", email });

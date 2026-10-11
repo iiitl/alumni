@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { getMongoClient } from "@/lib/mongodb";
 import { redisClient } from "@/lib/ratelimit";
 import { isIiitlEmail, normalizeEmail } from "@/lib/auth-utils";
 
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Create the user only if nobody registered this email in the meantime.
-    const db = (await clientPromise).db();
+    const db = (await getMongoClient()).db();
     await db.collection("users").updateOne(
       { email: pendingUser.email },
       {

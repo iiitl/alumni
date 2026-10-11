@@ -2,10 +2,10 @@ import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { sendEmail } from "@/lib/email"
-import clientPromise from "@/lib/mongodb"
+import { getMongoClient } from "@/lib/mongodb"
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { limit, redisClient } from "@/lib/ratelimit";
-import { IIITL_EMAIL_DOMAIN, isIiitlEmail, normalizeEmail } from "@/lib/auth-utils";
+import { IIITL_EMAIL_DOMAIN, getClientIp, isIiitlEmail, normalizeEmail } from "@/lib/auth-utils";
 import bcrypt from "bcryptjs"
 import { randomUUID } from "crypto"
 
@@ -17,7 +17,7 @@ function logRejectedSignIn(reason: string, details: Record<string, unknown>) {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: MongoDBAdapter(clientPromise),
+  adapter: MongoDBAdapter(getMongoClient),
   session: {
     // The Credentials provider only ever issues JWT session cookies, so the
     // whole app uses JWT sessions. The adapter still stores users, accounts and
@@ -89,12 +89,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = normalizeEmail(credentials?.email);
         const password = credentials?.password;
         if (!isIiitlEmail(email) || typeof password !== "string" || !password) return null;
 
-        const db = (await clientPromise).db();
+        // Limit password guessing. Lives here rather than in the server action
+        // so direct POSTs to /api/auth/callback/credentials are covered too.
+        // One bucket per IP (one IP trying many accounts) and one per IP and
+        // account (so other IPs can't use up a member's attempts).
+        const ip = getClientIp(request.headers);
+        const [ipLimit, accountLimit] = await Promise.all([
+          limit(`login_ip_${ip}`, { maxRequests: 20, window: "15m" }),
+          limit(`login_${ip}_${email}`, { maxRequests: 5, window: "15m" }),
+        ]);
+        if (!ipLimit.success || !accountLimit.success) {
+          logRejectedSignIn("credentials_rate_limited", { email, ip });
+          return null;
+        }
+
+        const db = (await getMongoClient()).db();
         const user = await db.collection("users").findOne({ email });
 
         if (!user || typeof user.hashedPassword !== "string") {
@@ -133,7 +147,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // adapter would create a bare user for any @iiitl.ac.in address and
       // skip registration entirely.
       if (account?.provider === "email") {
-        const db = (await clientPromise).db();
+        const db = (await getMongoClient()).db();
         const existingUser = await db.collection("users").findOne({ email });
         if (!existingUser) {
           logRejectedSignIn("magic_link_unknown_user", { email });
@@ -143,7 +157,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       if (account?.provider === "google") {
-        const db = (await clientPromise).db();
+        const db = (await getMongoClient()).db();
         const existingUser = await db.collection("users").findOne({ email });
 
         if (!existingUser) {

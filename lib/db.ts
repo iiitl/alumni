@@ -37,6 +37,12 @@ export async function connectDB() {
     cached.promise = mongoose.connect(MONGODB_URI);
   }
 
-  cached.conn = await cached.promise;
+  try {
+    cached.conn = await cached.promise;
+  } catch (error) {
+    // Clear the failed attempt so the next call retries instead of reusing the rejection.
+    cached.promise = null;
+    throw error;
+  }
   return cached.conn;
 }
