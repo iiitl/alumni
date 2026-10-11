@@ -1,6 +1,5 @@
 "use client";
 
-// app/register/RegisterForm.tsx
 import { useActionState } from "react";
 import { handleRegistration, signUpWithGoogle } from "@/app/register/actions";
 
@@ -23,12 +22,12 @@ export default function RegisterForm() {
         <input type="text" id="name" name="name" required className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" />
       </div>
       <div className="sm:col-span-2">
-        <label htmlFor="email" className="text-sm font-medium">IIITL email or roll no.</label>
-        <input type="email" id="email" name="email" required className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" />
+        <label htmlFor="email" className="text-sm font-medium">IIITL email</label>
+        <input type="email" id="email" name="email" required autoComplete="email" className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" />
       </div>
       <div className="sm:col-span-2">
         <label htmlFor="password" className="text-sm font-medium">Password</label>
-        <input type="password" id="password" name="password" minLength={8} required className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" />
+        <input type="password" id="password" name="password" minLength={8} required autoComplete="new-password" className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" />
       </div>
       <div>
         <label htmlFor="branch" className="text-sm font-medium">Branch</label>
@@ -49,15 +48,16 @@ export default function RegisterForm() {
         </button>
       </div>
 
-      <div className="flex gap-2 items-center justify-center w-full sm:col-span-2">
-        <div className="h-0.5 bg-background-700 w-full"></div>
+      <div className="flex gap-2 items-center justify-center w-full text-sm text-muted sm:col-span-2">
+        <div className="h-px bg-border w-full"></div>
         <div>or</div>
-        <div className="h-0.5 bg-background-700 w-full"></div>
+        <div className="h-px bg-border w-full"></div>
       </div>
       <div className="sm:col-span-2">
-        <button formAction={signUpWithGoogle} formNoValidate type="submit" className="inline-flex h-11 w-full items-center justify-center rounded-md bg-background border border-border text-sm font-semibold text-white hover:bg-background-700">
+        <button formAction={signUpWithGoogle} formNoValidate type="submit" className="inline-flex h-11 w-full items-center justify-center rounded-md bg-background border border-border text-sm font-semibold text-foreground hover:bg-surface">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon */}
           <span className="h-5 w-5 mr-1"><img src="/google.svg" alt="" className="w-full" /></span>
-          Sign-up with Google
+          Sign up with Google
         </button>
       </div>
     </form>

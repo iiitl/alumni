@@ -1,41 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { redisClient } from "@/lib/ratelimit";
+import { isIiitlEmail, normalizeEmail } from "@/lib/auth-utils";
+
+type PendingUser = {
+  email: string;
+  name: string;
+  branch: string;
+  graduationYear: number;
+  hashedPassword: string;
+};
+
+function parsePendingUser(raw: unknown): PendingUser | null {
+  const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+  if (!data || typeof data !== "object") return null;
+  const { email, name, branch, graduationYear, hashedPassword } = data as Record<string, unknown>;
+  const normalized = normalizeEmail(email);
+  if (
+    !isIiitlEmail(normalized) ||
+    typeof name !== "string" ||
+    typeof branch !== "string" ||
+    typeof graduationYear !== "number" ||
+    typeof hashedPassword !== "string"
+  ) {
+    return null;
+  }
+  return { email: normalized, name, branch, graduationYear, hashedPassword };
+}
 
 export async function GET(req: NextRequest) {
+  const redirectTo = (path: string) => NextResponse.redirect(new URL(path, req.url));
   const token = req.nextUrl.searchParams.get("token");
 
-  if (!token || !redisClient) {
-    return NextResponse.redirect(new URL("/login?error=InvalidToken", req.url));
+  if (!token) {
+    return redirectTo("/login?error=InvalidToken");
+  }
+  if (!redisClient) {
+    return redirectTo("/login?error=SignupUnavailable");
   }
 
-  // 1. Retrieve pending data from Redis
-  const rawData = await redisClient.get(`verify_${token}`);
-  if (!rawData) {
-    return NextResponse.redirect(new URL("/login?error=TokenExpired", req.url));
-  }
+  try {
+    // 1. Claim the pending data. GETDEL makes the token single-use even if the
+    // link is clicked twice at the same time.
+    const rawData = await redisClient.getdel(`verify_${token}`);
+    if (!rawData) {
+      return redirectTo("/login?error=TokenExpired");
+    }
 
-  const pendingUser = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    const pendingUser = parsePendingUser(rawData);
+    if (!pendingUser) {
+      return redirectTo("/login?error=InvalidToken");
+    }
 
-  // 2. Atomic Save to MongoDB
-  const db = (await clientPromise).db();
-  
-  // Atomic upsert — safe under concurrent clicks / retries.
-  await db.collection("users").updateOne(
-    { email: pendingUser.email },
-    {
-      $setOnInsert: {
-        ...pendingUser,
-        emailVerified: new Date(),
-        createdAt: new Date(),
+    // 2. Create the user only if nobody registered this email in the meantime.
+    const db = (await clientPromise).db();
+    await db.collection("users").updateOne(
+      { email: pendingUser.email },
+      {
+        $setOnInsert: {
+          ...pendingUser,
+          emailVerified: new Date(),
+          createdAt: new Date(),
+        },
       },
-    },
-    { upsert: true }
-  );
+      { upsert: true }
+    );
 
-  // 3. Delete the token from Redis
-  await redisClient.del(`verify_${token}`);
-
-  // 4. Redirect them to login
-  return NextResponse.redirect(new URL("/login?success=EmailVerified", req.url));
+    return redirectTo("/login?success=EmailVerified");
+  } catch (error) {
+    console.error({ severity: "ERROR", event: "EMAIL_VERIFICATION_FAILED", error });
+    return redirectTo("/login?error=SignupUnavailable");
+  }
 }

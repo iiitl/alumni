@@ -4,72 +4,97 @@ import bcrypt from "bcryptjs";
 import clientPromise from "@/lib/mongodb";
 import { redisClient } from "@/lib/ratelimit";
 import { redirect } from "next/navigation";
+import { isIiitlEmail, normalizeEmail } from "@/lib/auth-utils";
+
+type PendingGoogleSignup = {
+  email: string;
+  googleAccountId: string;
+  name?: string;
+  image?: string;
+};
+
+function parsePendingGoogleSignup(raw: unknown): PendingGoogleSignup | null {
+  let data: unknown;
+  try {
+    data = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const { email, googleAccountId, name, image } = data as Record<string, unknown>;
+  const normalized = normalizeEmail(email);
+  if (!isIiitlEmail(normalized) || typeof googleAccountId !== "string" || !googleAccountId) {
+    return null;
+  }
+  return {
+    email: normalized,
+    googleAccountId,
+    name: typeof name === "string" ? name : undefined,
+    image: typeof image === "string" ? image : undefined,
+  };
+}
 
 export async function completeGoogleSignup(token: string, formData: FormData) {
-  if (!token || typeof token !== "string" || !token.trim()) {
-    redirect("/setup-password?error=InvalidToken")
+  const trimmedToken = typeof token === "string" ? token.trim() : "";
+  if (!trimmedToken) {
+    redirect("/login?error=InvalidToken");
   }
 
-  const password = formData.get("password") as string;
-  if (!password || password.length < 8) {
-    throw new Error("Password must be at least 8 characters long.");
+  // Validate before claiming the token, so a typo doesn't burn it.
+  const password = formData.get("password");
+  if (typeof password !== "string" || password.length < 8) {
+    redirect(`/setup-password?${new URLSearchParams({ token: trimmedToken, error: "PasswordTooShort" })}`);
   }
 
   if (!redisClient) {
-    throw new Error("Internal Server Error: Redis required for atomic signups.");
+    redirect("/login?error=SignupUnavailable");
   }
 
-  // 1. Fetch pending Google data from Redis
-  const rawData = await redisClient.get(`pending_google_${token.trim()}`);
+  // 1. Claim the pending Google data. GETDEL makes the token single-use, so a
+  // double-submit can't create two accounts.
+  const rawData = await redisClient.getdel(`pending_google_${trimmedToken}`);
   if (!rawData) {
-    redirect("/setup-password?error=TokenExpired")
-  }
-  
-  // Upstash returns deeply parsed JSON natively sometimes depending on setup, but handle string fallback
-  let pendingData: unknown
-  try {
-    pendingData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-  } catch {
-    redirect("/setup-password?error=InvalidTokenPayload")
+    redirect("/login?error=TokenExpired");
   }
 
-  if (
-    !pendingData ||
-    typeof pendingData !== "object" ||
-    !("email" in pendingData) ||
-    !("googleAccountId" in pendingData) ||
-    typeof (pendingData as { email: unknown }).email !== "string" ||
-    typeof (pendingData as { googleAccountId: unknown }).googleAccountId !== "string"
-  ) {
-    redirect("/setup-password?error=InvalidTokenPayload")
+  const pending = parsePendingGoogleSignup(rawData);
+  if (!pending) {
+    redirect("/login?error=InvalidToken");
   }
 
-  // 2. Hash the new password safely
+  const db = (await clientPromise).db();
+
+  // 2. Someone may have registered this email while the token was pending.
+  const existingUser = await db.collection("users").findOne({ email: pending.email }, { projection: { _id: 1 } });
+  if (existingUser) {
+    redirect("/login?error=OAuthAccountNotLinked");
+  }
+
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // 3. ATOMIC SAVE: Insert User and Account manually into MongoDB
-  const db = (await clientPromise).db();
-  
-  // Create user
-  const result = await db.collection("users").insertOne({
-    name: (pendingData as { name?: string }).name,
-    email: (pendingData as { email: string }).email,
-    image: (pendingData as { image?: string }).image,
-    hashedPassword: hashedPassword,
+  // 3. Create the user and link the Google account. If linking fails, remove
+  // the user again so no half-created account is left behind.
+  const { insertedId } = await db.collection("users").insertOne({
+    name: pending.name,
+    email: pending.email,
+    image: pending.image,
+    hashedPassword,
     emailVerified: new Date(), // They proved email ownership via Google
+    createdAt: new Date(),
   });
 
-  // Link the Google Account to this new User so NextAuth recognizes it later
-  await db.collection("accounts").insertOne({
-    userId: result.insertedId,
-    type: "oauth",
-    provider: "google",
-    providerAccountId: (pendingData as { googleAccountId: string }).googleAccountId,
-  });
+  try {
+    await db.collection("accounts").insertOne({
+      userId: insertedId,
+      type: "oidc",
+      provider: "google",
+      providerAccountId: pending.googleAccountId,
+    });
+  } catch (error) {
+    await db.collection("users").deleteOne({ _id: insertedId });
+    console.error({ severity: "ERROR", event: "GOOGLE_SIGNUP_LINK_FAILED", email: pending.email, error });
+    redirect("/login?error=SignupUnavailable");
+  }
 
-  // 4. Delete the Redis token to prevent duplicate account creation
-  await redisClient.del(`pending_google_${token.trim()}`);
-
-  // 5. Registration fully atomic! Send them to login (or directly sign them in if configured)
   redirect("/login?success=AccountCreated");
 }
