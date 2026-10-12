@@ -15,6 +15,7 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-700: var(--background-700);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-surface: var(--surface);
@@ -32,6 +33,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0f1c;
+    --background-700: #1d2846;
     --foreground: #e8ecf5;
     --muted: #97a1b5;
     --surface: #111729;
