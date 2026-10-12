@@ -4,6 +4,7 @@ import { signIn } from "@/auth"
 import { AuthError } from "next-auth"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
+import { after } from "next/server"
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { redisClient, limit } from "@/lib/ratelimit";
@@ -25,7 +26,8 @@ export async function handleRegistration(
   try {
     const authUrl = process.env.AUTH_URL;
     if (!authUrl) throw new Error("Server configuration error: AUTH_URL is missing.");
-    if (!redisClient) throw new Error("Server configuration error: Redis is required for registration.");
+    const redis = redisClient;
+    if (!redis) throw new Error("Server configuration error: Redis is required for registration.");
 
     const email = normalizeEmail(formData.get("email"));
     const rawPassword = formData.get("password");
@@ -72,11 +74,11 @@ export async function handleRegistration(
     const db = (await getMongoClient()).db();
     const existingUser = await db.collection("users").findOne({ email }, { projection: { _id: 1 } });
     if (existingUser) {
-      await sendEmail({
+      after(() => sendEmail({
         to: email,
         subject: "You already have an IIITL Alumni account",
         text: `Someone tried to register with this email, but you already have an account. Sign in at ${authUrl}/login. If this wasn't you, you can ignore this email.`,
-      });
+      }));
       return { success: true, message: CHECK_EMAIL_MESSAGE };
     }
 
@@ -91,21 +93,25 @@ export async function handleRegistration(
       hashedPassword,
     };
 
-    await redisClient.set(`verify_${token}`, JSON.stringify(pendingUser), { ex: 24 * 60 * 60 });
+    await redis.set(`verify_${token}`, JSON.stringify(pendingUser), { ex: 24 * 60 * 60 });
 
     const verifyUrl = `${authUrl}/api/verify-email?token=${token}`;
 
-    const sent = await sendEmail({
-      to: email,
-      subject: "Verify your IIITL Alumni Account",
-      text: `Click here to verify your account: ${verifyUrl}`,
-      html: `<a href="${verifyUrl}">Verify Account</a>`
-    });
+    after(async () => {
+      try {
+        const sent = await sendEmail({
+          to: email,
+          subject: "Verify your IIITL Alumni Account",
+          text: `Click here to verify your account: ${verifyUrl}`,
+          html: `<a href="${verifyUrl}">Verify Account</a>`
+        });
 
-    if (!sent) {
-      await redisClient.del(`verify_${token}`);
-      throw new Error("Failed to send verification email.");
-    }
+        if (!sent) throw new Error("Failed to send verification email.");
+      } catch (error) {
+        console.error({ severity: "ERROR", event: "REGISTRATION_EMAIL_FAILED", error });
+        await redis.del(`verify_${token}`);
+      }
+    });
 
     return { success: true, message: CHECK_EMAIL_MESSAGE };
   } catch (error) {
