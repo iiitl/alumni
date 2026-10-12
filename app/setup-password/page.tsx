@@ -1,13 +1,23 @@
 import { completeGoogleSignup } from "@/app/setup-password/actions";
+import type { Metadata } from "next";
 import { Section } from "@/components/Section";
 
-export const metadata = { title: "Complete Sign Up" };
+export const metadata: Metadata = {
+  title: "Complete Sign Up",
+  // The URL carries a one-time signup token: keep it out of search results and referrers.
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
+};
 
 export default async function SetupPasswordPage(
-  props: { searchParams: Promise<{ token?: string }> }
+  props: { searchParams: Promise<{ token?: string; error?: string }> }
 ) {
   const searchParams = await props.searchParams;
   const token = searchParams.token;
+  const passwordError =
+    searchParams.error === "PasswordTooShort"
+      ? "Password must be at least 8 characters long."
+      : null;
 
   if (!token) {
     return (
@@ -29,10 +39,18 @@ export default async function SetupPasswordPage(
           complete your registration.
         </p>
 
+        {passwordError && (
+          <p role="alert" className="mt-4 rounded-md border border-border bg-surface p-3 text-sm">
+            {passwordError}
+          </p>
+        )}
+
         <form action={actionWithToken} className="mt-6 space-y-4">
           <div>
-            <label className="text-sm font-medium">New Password</label>
+            <label htmlFor="password" className="text-sm font-medium">New Password</label>
             <input
+              id="password"
+              autoComplete="new-password"
               type="password"
               name="password"
               required
