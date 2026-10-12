@@ -13,7 +13,7 @@ const causes = [
   },
   {
     title: "Research Grants",
-    body: "Travel grants and lab equipment for undergraduate research across CSE, IT, and ECE.",
+    body: "Travel grants and lab equipment for undergraduate research across CSE, IT, and CSAI.",
   },
 ];
 
@@ -21,33 +21,31 @@ export default function GivingPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Give Back"
+        eyebrow="GIVE BACK"
         title="Causes alumni can support"
         description="Ideas for how IIITL alumni might one day contribute to current students. These are placeholders — real causes, accounting, and donation flow will be set up before this page goes live."
       />
-      <Section className="py-12">
-        <div className="grid gap-6 md:grid-cols-3">
+      <Section className="py-8 sm:py-12">
+        <div className="grid gap-5 md:grid-cols-3">
           {causes.map((c) => (
             <div
               key={c.title}
-              className="rounded-xl border border-border bg-background p-6"
+              className="flex flex-col justify-between rounded-2xl border border-border bg-background p-6 transition-all duration-150 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-xs"
             >
-              <div className="font-serif text-xl font-semibold">{c.title}</div>
-              <p className="mt-2 text-sm text-muted">{c.body}</p>
-              <button
-                type="button"
-                disabled
-                className="mt-5 inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-md border border-dashed border-border text-sm font-medium text-muted"
-              >
+              <div>
+                <h3 className="font-serif text-lg font-bold text-foreground">
+                  {c.title}
+                </h3>
+                <p className="mt-2.5 text-sm leading-relaxed text-muted">
+                  {c.body}
+                </p>
+              </div>
+
+              <div className="mt-6 rounded-lg border border-dashed border-border py-2 text-center text-xs text-muted">
                 Coming soon
-              </button>
+              </div>
             </div>
           ))}
-        </div>
-
-        <div className="mt-12 rounded-xl border border-dashed border-border bg-surface p-8 text-center text-sm text-muted">
-          Donations are not yet accepted. When we wire up a proper account and
-          reporting, this page will be the place.
         </div>
       </Section>
     </>

@@ -101,7 +101,7 @@ export const featuredAlumni: AlumnusItem[] = [
   {
     name: "Rohan Singh",
     batch: "2020",
-    branch: "ECE",
+    branch: "CSAI",
     role: "PhD Researcher",
     company: "ETH Zurich",
     city: "Zurich",

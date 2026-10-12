@@ -16,21 +16,25 @@ export default async function NewsDetailPage(props: {
 
   return (
     <article>
-      <div className="border-b border-border bg-surface">
-        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+      <div className="relative overflow-hidden border-b border-border bg-surface/50 bg-student-grid">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand via-accent to-brand opacity-80" />
+        <div className="relative z-10 mx-auto max-w-3xl px-4 py-12 sm:px-6">
           <Link
             href="/news"
-            className="text-sm font-medium text-brand hover:underline"
+            className="inline-flex items-center gap-1 font-mono text-xs text-brand hover:underline cursor-pointer"
           >
-            ← All news
+            ← Back to campus wire
           </Link>
-          <div className="mt-4 text-xs font-semibold uppercase tracking-wider text-accent-600">
-            {item.category}
+          <div className="mt-3">
+            <span className="rounded bg-brand-50 px-2 py-0.5 font-mono text-xs font-semibold text-brand border border-brand/20">
+              {item.category}
+            </span>
           </div>
-          <h1 className="mt-2 font-serif text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h1 className="mt-3 font-sans text-3xl font-bold tracking-tight sm:text-4xl text-foreground">
             {item.title}
           </h1>
-          <div className="mt-4 text-sm text-muted">
+          <div className="mt-3 font-mono text-xs text-muted">
+            📅{" "}
             {new Date(item.date).toLocaleDateString("en-IN", {
               day: "numeric",
               month: "long",
